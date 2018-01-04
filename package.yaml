@@ -17,8 +17,10 @@ description:         …
 dependencies:
   - base >= 4.7 && < 5
   - base-unicode-symbols
+  - hashable
   - jack
   - singletons
+  - unordered-containers
   - wx
 
 library:

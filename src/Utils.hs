@@ -12,9 +12,8 @@ module Utils where
 
 import Prelude.Unicode
 import GHC.TypeLits
-import Data.Word
 import Data.Proxy
-import Data.Kind
+import Data.Word
 
 
 data (a ∷ k) ↔ b
@@ -24,10 +23,6 @@ infixr 5 ↔
 type family Len (a ∷ k) ∷ Nat where
   Len (x ↔ xs) = Len x + Len xs
   Len _ = 1
-
-type family KnownSymbols (a ∷ [Symbol]) ∷ Constraint where
-  KnownSymbols '[] = ()
-  KnownSymbols (s ': t) = (KnownSymbol s, KnownSymbols t)
 
 
 -- Key-type to MIDI key
@@ -43,3 +38,10 @@ superscript = \case '1' → '¹' ; '2' → '²' ; '3' → '³' ; '4' → '⁴' ;
 (•) = flip (∘)
 {-# INLINE (•) #-}
 infixl 9 •
+
+-- Left-to-right infix fmap
+-- Look at https://github.com/ekmett/lens/blob/d561c44098a1131dc26e545f6bfde58874bf6a6c/src/Control/Lens/Lens.hs#L357-L364
+(<&>) :: Functor f ⇒ f a → (a → b) → f b
+(<&>) = flip (<$>)
+{-# INLINE (<&>) #-}
+infixr 5 <&>

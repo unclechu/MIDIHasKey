@@ -1,10 +1,12 @@
 {-# LANGUAGE UnicodeSyntax #-}
+{-# LANGUAGE TupleSections #-}
 
 import Prelude.Unicode
 import GHC.TypeLits
 import Data.Proxy
 
 import Data.Word
+import Data.HashMap.Strict
 import Control.Arrow
 import Control.Concurrent
 import Control.Monad
@@ -17,6 +19,7 @@ import Graphics.UI.WX
 import Utils
 import Keys
 
+
 main = do
   let startMidiKey = 20 ∷ Word8
 
@@ -28,24 +31,34 @@ main = do
   start $ mainWnd (row1, row2, row3, row4)
   return ()
 
+
 mainWnd ∷ (OneRow, OneRow, OneRow, OneRow) → IO ()
 mainWnd (row1, row2, row3, row4) = do
-  mainFrame ← frameFixed [text := "MIDIHasKey - Virtual MIDI keyboard for microtonal music"]
+  mainFrame ← frameFixed [text := "MIDIHasKey — Virtual MIDI keyboard for microtonal music"]
 
-  let getBtns (rowKey, label, midi)
-        = smallButton mainFrame [text := label ⧺ map superscript (show midi)]
+  let getBtn ∷ RowEl → IO (RowKey, Button ())
+      getBtn (rowKey, label, midi)
+        = smallButton mainFrame [text := label ⧺ fmap superscript (show midi)] <&> (rowKey,)
 
-  btns1 ← forM row1 getBtns
-  btns2 ← forM row2 getBtns
-  btns3 ← forM row3 getBtns
-  btns4 ← forM row4 getBtns
+      getRowBtns ∷ OneRow → IO (HashMap RowKey (Button ()))
+      getRowBtns = mapM getBtn • fmap fromList
+
+  btns1 ← getRowBtns row1
+  btns2 ← getRowBtns row2
+  btns3 ← getRowBtns row3
+  btns4 ← getRowBtns row4
+
+  let allBtns ∷ HashMap RowKey (Button ())
+      allBtns = unions [btns1, btns2, btns3, btns4]
+
+  print allBtns
 
   set mainFrame [layout := margin 5 $ boxed "Keyboard"
                                     $ margin 5
-                                    $ column 5 [ hfloatCenter $ row 5 $ map widget btns4
-                                               , hfloatCenter $ row 5 $ map widget btns3
-                                               , hfloatCenter $ row 5 $ map widget btns2
-                                               , hfloatCenter $ row 5 $ map widget btns1
+                                    $ column 5 [ hfloatCenter $ row 5 $ elems $ fmap widget btns4
+                                               , hfloatCenter $ row 5 $ elems $ fmap widget btns3
+                                               , hfloatCenter $ row 5 $ elems $ fmap widget btns2
+                                               , hfloatCenter $ row 5 $ elems $ fmap widget btns1
                                                ]]
 
   putStrLn "going well…"

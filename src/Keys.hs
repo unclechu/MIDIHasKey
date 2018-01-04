@@ -1,6 +1,7 @@
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 -- Type-level
 {-# LANGUAGE DataKinds #-}
@@ -18,12 +19,14 @@ module Keys where
 
 import Prelude.Unicode
 import GHC.TypeLits
+import GHC.Generics (Generic)
 
 import Data.Proxy
 import Data.Word
 import Data.Kind
 import Data.Singletons.TH
-import Data.Type.Equality
+import Data.HashMap.Strict
+import Data.Hashable
 
 -- local
 import Utils
@@ -40,8 +43,10 @@ singletons [d|
     | BacktickKey | N1Key | N2Key | N3Key | N4Key | N5Key | N6Key | N7Key | N8Key | N9Key | N0Key
     | MinusKey | EqualKey
 
-    deriving (Eq, Show)
+    deriving (Show, Eq, Generic)
     |]
+
+instance Hashable RowKey
 
 
 type KeysRow1
@@ -136,4 +141,5 @@ class RowProxies a where
 getRow ∷ (KeyRow l, KnownNat o) ⇒ Word8 → (Proxy l, Proxy o) → [(RowKey, String, Word8)]
 getRow n (listProxy, offsetProxy) = mappedRow [(n + nat2MidiKey offsetProxy)..] listProxy
 
-type OneRow = [(RowKey, String, Word8)]
+type RowEl  = (RowKey, String, Word8)
+type OneRow = [RowEl]
