@@ -1,0 +1,37 @@
+name:                midihaskey
+version:             0.1.0.0
+github:              "unclechu/midihaskey"
+license:             MIT
+author:              "Viacheslav Lotsmanov"
+maintainer:          "lotsmanov89@gmail.com"
+copyright:           "2018 Viacheslav Lotsmanov"
+
+extra-source-files:
+  - README.md
+  - ChangeLog.md
+
+category:            Audio
+synopsis:            …
+description:         …
+
+dependencies:
+  - base >= 4.7 && < 5
+  - base-unicode-symbols
+  - jack
+  - singletons
+  - wx
+
+library:
+  source-dirs: src
+
+executables:
+  midihaskey:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+      - -O2
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - midihaskey

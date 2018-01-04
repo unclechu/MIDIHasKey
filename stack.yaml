@@ -1,0 +1,9 @@
+resolver: lts-9.21
+system-ghc: false
+packages:
+  - .
+extra-deps:
+  - wx-0.92.3.0
+  - wxc-0.92.3.0
+  - wxcore-0.92.3.0
+  - wxdirect-0.92.3.0
