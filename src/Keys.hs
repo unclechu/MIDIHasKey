@@ -52,37 +52,21 @@ instance Hashable RowKey
 type KeysRow1
   = 'ZKey ↔ 'XKey ↔ 'CKey ↔ 'VKey ↔ 'BKey
   ↔ 'NKey ↔ 'MKey ↔ 'CommaKey ↔ 'DotKey ↔ 'SlashKey
-instance RowProxies KeysRow1 where
-  rowProxies _ = ( (Proxy ∷ Proxy (RowList KeysRow1))
-                 , (Proxy ∷ Proxy (RowOffset KeysRow1))
-                 )
 
 type KeysRow2
   = 'AKey ↔ 'SKey ↔ 'DKey ↔ 'FKey ↔ 'GKey
   ↔ 'HKey ↔ 'JKey ↔ 'KKey ↔ 'LKey ↔ 'ColonKey ↔ 'QuoteKey
-instance RowProxies KeysRow2 where
-  rowProxies _ = ( (Proxy ∷ Proxy (RowList KeysRow2))
-                 , (Proxy ∷ Proxy (RowOffset KeysRow2))
-                 )
 
 type KeysRow3
   = 'QKey ↔ 'WKey ↔ 'EKey ↔ 'RKey ↔ 'TKey
   ↔ 'YKey ↔ 'UKey ↔ 'IKey ↔ 'OKey ↔ 'PKey
   ↔ 'BracketLKey ↔ 'BracketRKey ↔ 'BSlashKey
-instance RowProxies KeysRow3 where
-  rowProxies _ = ( (Proxy ∷ Proxy (RowList KeysRow3))
-                 , (Proxy ∷ Proxy (RowOffset KeysRow3))
-                 )
 
 type KeysRow4
   = 'BacktickKey
   ↔ 'N1Key ↔ 'N2Key ↔ 'N3Key ↔ 'N4Key ↔ 'N5Key
   ↔ 'N6Key ↔ 'N7Key ↔ 'N8Key ↔ 'N9Key ↔ 'N0Key
   ↔ 'MinusKey ↔ 'EqualKey
-instance RowProxies KeysRow4 where
-  rowProxies _ = ( (Proxy ∷ Proxy (RowList KeysRow4))
-                 , (Proxy ∷ Proxy (RowOffset KeysRow4))
-                 )
 
 
 type RowKeyMap
@@ -134,17 +118,14 @@ instance (SingI k, KnownSymbol s, KeyRow t) ⇒ KeyRow ('(k, s) ': t) where
     = (fromSing (sing ∷ Sing k), symbolVal (Proxy ∷ Proxy s), n)
     : mappedRow ns (Proxy ∷ Proxy t)
 
-class RowProxies a where
-  rowProxies ∷ (KnownList l, KnownNat n, l ~ RowList a, n ~ RowOffset a) ⇒ a → (Proxy l, Proxy n)
-
 class GetAllRows a where
   getAllRows ∷ Word8 → Proxy a → [OneRow]
 instance GetAllRows '[] where
   getAllRows _ Proxy = []
-instance ( RowProxies r, GetAllRows t, KnownList l, KeyRow l, KnownNat n
-         , l ~ RowList r, n ~ RowOffset r
-         ) ⇒ GetAllRows (r ': t) where
-  getAllRows n Proxy = getRow n (rowProxies ((⊥) ∷ r)) : getAllRows n (Proxy ∷ Proxy t)
+instance (GetAllRows t, KnownList l, KeyRow l, KnownNat n, l ~ RowList r, n ~ RowOffset r)
+  ⇒ GetAllRows (r ': t) where
+  getAllRows n Proxy = getRow n proxies : getAllRows n (Proxy ∷ Proxy t)
+    where proxies = (Proxy ∷ Proxy l, Proxy ∷ Proxy n)
 
 
 getRow ∷ (KeyRow l, KnownNat o) ⇒ Word8 → (Proxy l, Proxy o) → OneRow
