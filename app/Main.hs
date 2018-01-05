@@ -22,44 +22,35 @@ import Keys
 
 main = do
   let startMidiKey = 20 ∷ Word8
+      allRows = getAllRows startMidiKey (Proxy ∷ Proxy AllRows)
 
-      row1 = getRow startMidiKey $ rowProxies ((⊥) ∷ KeysRow1)
-      row2 = getRow startMidiKey $ rowProxies ((⊥) ∷ KeysRow2)
-      row3 = getRow startMidiKey $ rowProxies ((⊥) ∷ KeysRow3)
-      row4 = getRow startMidiKey $ rowProxies ((⊥) ∷ KeysRow4)
-
-  start $ mainWnd (row1, row2, row3, row4)
-  return ()
+  start $ mainWnd allRows
 
 
-mainWnd ∷ (OneRow, OneRow, OneRow, OneRow) → IO ()
-mainWnd (row1, row2, row3, row4) = do
+mainWnd ∷ [OneRow] → IO ()
+mainWnd allRows = do
   mainFrame ← frameFixed [text := "MIDIHasKey — Virtual MIDI keyboard for microtonal music"]
 
-  let getBtn ∷ RowEl → IO (RowKey, Button ())
-      getBtn (rowKey, label, midi)
+  let getButton ∷ RowEl → IO (RowKey, Button ())
+      getButton (rowKey, label, midi)
         = smallButton mainFrame [text := label ⧺ fmap superscript (show midi)] <&> (rowKey,)
 
-      getRowBtns ∷ OneRow → IO (HashMap RowKey (Button ()))
-      getRowBtns = mapM getBtn • fmap fromList
+      getRowButtons ∷ OneRow → IO (HashMap RowKey (Button ()))
+      getRowButtons = mapM getButton • fmap fromList
 
-  btns1 ← getRowBtns row1
-  btns2 ← getRowBtns row2
-  btns3 ← getRowBtns row3
-  btns4 ← getRowBtns row4
+  allButtons ← mapM getRowButtons allRows
 
-  let allBtns ∷ HashMap RowKey (Button ())
-      allBtns = unions [btns1, btns2, btns3, btns4]
+  let buttonsMap ∷ HashMap RowKey (Button ())
+      buttonsMap = unions allButtons
 
-  print allBtns
+  print buttonsMap
 
-  set mainFrame [layout := margin 5 $ boxed "Keyboard"
-                                    $ margin 5
-                                    $ column 5 [ hfloatCenter $ row 5 $ elems $ fmap widget btns4
-                                               , hfloatCenter $ row 5 $ elems $ fmap widget btns3
-                                               , hfloatCenter $ row 5 $ elems $ fmap widget btns2
-                                               , hfloatCenter $ row 5 $ elems $ fmap widget btns1
-                                               ]]
+  set mainFrame [ layout := margin 5 $ boxed "Keyboard"
+                                     $ margin 5
+                                     $ column 5
+                                     $ reverse
+                                     $ fmap (hfloatCenter ∘ row 5 ∘ elems ∘ fmap widget) allButtons
+                ]
 
   putStrLn "going well…"
 

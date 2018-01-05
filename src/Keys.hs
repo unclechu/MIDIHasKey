@@ -137,9 +137,19 @@ instance (SingI k, KnownSymbol s, KeyRow t) ⇒ KeyRow ('(k, s) ': t) where
 class RowProxies a where
   rowProxies ∷ (KnownList l, KnownNat n, l ~ RowList a, n ~ RowOffset a) ⇒ a → (Proxy l, Proxy n)
 
+class GetAllRows a where
+  getAllRows ∷ Word8 → Proxy a → [OneRow]
+instance GetAllRows '[] where
+  getAllRows _ Proxy = []
+instance ( RowProxies r, GetAllRows t, KnownList l, KeyRow l, KnownNat n
+         , l ~ RowList r, n ~ RowOffset r
+         ) ⇒ GetAllRows (r ': t) where
+  getAllRows n Proxy = getRow n (rowProxies ((⊥) ∷ r)) : getAllRows n (Proxy ∷ Proxy t)
 
-getRow ∷ (KeyRow l, KnownNat o) ⇒ Word8 → (Proxy l, Proxy o) → [(RowKey, String, Word8)]
+
+getRow ∷ (KeyRow l, KnownNat o) ⇒ Word8 → (Proxy l, Proxy o) → OneRow
 getRow n (listProxy, offsetProxy) = mappedRow [(n + nat2MidiKey offsetProxy)..] listProxy
 
+type AllRows = '[KeysRow1, KeysRow2, KeysRow3, KeysRow4]
 type RowEl  = (RowKey, String, Word8)
 type OneRow = [RowEl]
