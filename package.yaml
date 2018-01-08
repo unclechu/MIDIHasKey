@@ -1,9 +1,9 @@
 name:                midihaskey
 version:             0.1.0.0
 github:              "unclechu/midihaskey"
-license:             MIT
+license:             GPL-3
 author:              "Viacheslav Lotsmanov"
-maintainer:          "lotsmanov89@gmail.com"
+maintainer:          "Viacheslav Lotsmanov <lotsmanov89@gmail.com>"
 copyright:           "2018 Viacheslav Lotsmanov"
 
 extra-source-files:
@@ -11,15 +11,20 @@ extra-source-files:
   - ChangeLog.md
 
 category:            Audio
-synopsis:            …
-description:         …
+synopsis:            Virtual MIDI keyboard for microtonal music
+description:
+  Virtual MIDI keyboard for microtonal music.
+  .
+  TODO more description info.
 
 dependencies:
   - base >= 4.7 && < 5
   - base-unicode-symbols
   - hashable
   - jack
+  - midi
   - singletons
+  - transformers
   - unordered-containers
   - wx
 

@@ -3,10 +3,11 @@
 import Prelude.Unicode
 import Data.Proxy
 
-import Data.Word
 import Data.Function
 import Control.Concurrent
 import Control.Concurrent.MVar
+
+import Sound.MIDI.Message.Channel
 
 -- local
 import Utils
@@ -16,11 +17,11 @@ import MIDIPlayer
 
 
 main = do
-  let startMidiKey = 20 ∷ Word8
+  let startMidiKey = toPitch 20
       allRowsList = getAllRows startMidiKey (Proxy ∷ Proxy AllRows)
 
   sendToMIDIPlayer ← runMIDIPlayer
 
   runGUI GUIContext { allRows       = allRowsList
-                    , buttonHandler = \_ midiNote → sendToMIDIPlayer $ NoteOn midiNote
+                    , buttonHandler = \_ midiNote → sendToMIDIPlayer $ NoteOn midiNote (toVelocity 127)
                     }

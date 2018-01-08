@@ -13,7 +13,8 @@ module Utils where
 import Prelude.Unicode
 import GHC.TypeLits
 import Data.Proxy
-import Data.Word
+
+import Sound.MIDI.Message.Channel
 
 
 data (a ∷ k) ↔ b
@@ -26,12 +27,13 @@ type family Len (a ∷ k) ∷ Nat where
 
 
 -- Key-type to MIDI key
-nat2MidiKey ∷ (KnownNat a) ⇒ Proxy a → Word8
-nat2MidiKey = fromInteger ∘ natVal
+nat2MidiKey ∷ (KnownNat a) ⇒ Proxy a → Pitch
+nat2MidiKey = toPitch ∘ fromInteger ∘ natVal
 
 superscript ∷ Char → Char
 superscript = \case '1' → '¹' ; '2' → '²' ; '3' → '³' ; '4' → '⁴' ; '5' → '⁵'
                     '6' → '⁶' ; '7' → '⁷' ; '8' → '⁸' ; '9' → '⁹' ; '0' → '⁰'
+                    x → x
 
 -- Left-to-right composition, just like (>=>) for monads.
 (•) ∷ (a → b) → (b → c) → (a → c)

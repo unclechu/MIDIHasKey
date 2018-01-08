@@ -22,11 +22,13 @@ import GHC.TypeLits
 import GHC.Generics (Generic)
 
 import Data.Proxy
-import Data.Word
 import Data.Kind
 import Data.Singletons.TH
 import Data.HashMap.Strict
 import Data.Hashable
+import Data.Function
+
+import Sound.MIDI.Message.Channel
 
 -- local
 import Utils
@@ -110,7 +112,7 @@ type family RowOffset (a ∷ k) ∷ Nat where
 
 
 class KeyRow (a ∷ [(RowKey, Symbol)]) where
-  mappedRow ∷ [Word8] → Proxy a → [(RowKey, String, Word8)]
+  mappedRow ∷ [Pitch] → Proxy a → [(RowKey, String, Pitch)]
 instance KeyRow '[] where
   mappedRow _ Proxy = []
 instance (SingI k, KnownSymbol s, KeyRow t) ⇒ KeyRow ('(k, s) ': t) where
@@ -119,7 +121,7 @@ instance (SingI k, KnownSymbol s, KeyRow t) ⇒ KeyRow ('(k, s) ': t) where
     : mappedRow ns (Proxy ∷ Proxy t)
 
 class GetAllRows a where
-  getAllRows ∷ Word8 → Proxy a → [OneRow]
+  getAllRows ∷ Pitch → Proxy a → [OneRow]
 instance GetAllRows '[] where
   getAllRows _ Proxy = []
 instance (GetAllRows t, KnownList l, KeyRow l, KnownNat n, l ~ RowList r, n ~ RowOffset r)
@@ -128,9 +130,10 @@ instance (GetAllRows t, KnownList l, KeyRow l, KnownNat n, l ~ RowList r, n ~ Ro
     where proxies = (Proxy ∷ Proxy l, Proxy ∷ Proxy n)
 
 
-getRow ∷ (KeyRow l, KnownNat o) ⇒ Word8 → (Proxy l, Proxy o) → OneRow
-getRow n (listProxy, offsetProxy) = mappedRow [(n + nat2MidiKey offsetProxy)..] listProxy
+getRow ∷ (KeyRow l, KnownNat o) ⇒ Pitch → (Proxy l, Proxy o) → OneRow
+getRow n (listProxy, offsetProxy) = mappedRow [startFrom..] listProxy
+  where startFrom = toPitch $ fromPitch n + fromInteger (natVal offsetProxy)
 
 type AllRows = '[KeysRow1, KeysRow2, KeysRow3, KeysRow4]
-type RowEl  = (RowKey, String, Word8)
+type RowEl  = (RowKey, String, Pitch)
 type OneRow = [RowEl]
