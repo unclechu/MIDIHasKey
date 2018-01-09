@@ -13,6 +13,7 @@ module Utils where
 import Prelude.Unicode
 import GHC.TypeLits
 import Data.Proxy
+import Control.Monad ((<$!>))
 
 import Sound.MIDI.Message.Channel
 
@@ -47,3 +48,9 @@ infixl 9 •
 (<&>) = flip (<$>)
 {-# INLINE (<&>) #-}
 infixr 5 <&>
+
+-- Left-to-right infix strict fmap
+(<&!>) :: Monad m ⇒ m a → (a → b) → m b
+(<&!>) = flip (<$!>)
+{-# INLINE (<&!>) #-}
+infixr 5 <&!>

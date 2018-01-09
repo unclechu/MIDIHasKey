@@ -9,19 +9,25 @@ import GHC.TypeLits
 
 import Data.Proxy
 import Control.Monad
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Exception.Synchronous
 import Control.Concurrent
 import Control.Concurrent.MVar
-import Control.Monad.Trans.Class (lift)
 
 import Sound.JACK as JACK
 import Sound.JACK.MIDI as JMIDI
-import Sound.MIDI.Message.Channel
+import Sound.JACK.Exception
+import Sound.MIDI.Message as MMsg
+import Sound.MIDI.Message.Channel as MCh
+import qualified Sound.MIDI.Message.Channel.Voice as MVo
 
 -- local
 import Types
 import Utils
 
 type MIDIPlayerBus = MVar MIDIPlayerAction
+type MMonad e a = ExceptionalT e IO a
+type MTask e = MMonad e (Maybe MIDIPlayerAction)
 
 data MIDIPlayerAction
   = NoteOn  Pitch Velocity
@@ -37,16 +43,25 @@ runMIDIPlayer = do
     client ← newClientDefault $ symbolVal (Proxy ∷ Proxy AppName)
     (port ∷ JMIDI.Port Output) ← newPort client (symbolVal (Proxy ∷ Proxy OutputPortName))
 
-    let processCallback nframes = lift $
-          tryTakeMVar bus >>= \case Nothing → pure ()
-                                    Just (NoteOn  note vel) → handleNoteOn  note vel
-                                    Just (NoteOff note vel) → handleNoteOff note vel
+    let portBuf = lift ∘ getBuffer port  ∷ NFrames → MMonad e (Buffer Output)
+        getTask = lift (tryTakeMVar bus) ∷ MTask e
+
+        getTasks ∷ [MIDIPlayerAction] → MMonad e [MIDIPlayerAction]
+        getTasks acc = getTask >>= \case Nothing → pure acc
+                                         Just x  → getTasks $ x : acc
+
+        processCallback ∷ ThrowsErrno e ⇒ NFrames → MMonad e ()
+        processCallback nframes
+          = getTasks []
+            <&> map (action2midi • MMsg.Channel)
+            >>= \case [] → pure ()
+                      list → do buf ← portBuf nframes
+                                forM_ list $ writeEvent buf $ NFrames 0
 
     JACK.withProcess client processCallback $ activate client
 
 
-handleNoteOn ∷ Pitch → Velocity → IO ()
-handleNoteOn note vel = putStrLn $ "TODO playing MIDI note on: " ⧺ show note
-
-handleNoteOff ∷ Pitch → Velocity → IO ()
-handleNoteOff note vel = putStrLn $ "TODO playing MIDI note off: " ⧺ show note
+action2midi ∷ MIDIPlayerAction → MCh.T
+action2midi = \case
+  NoteOn  note vel → MCh.Cons (toChannel 0) $ Voice $ MVo.NoteOn  note vel
+  NoteOff note vel → MCh.Cons (toChannel 0) $ Voice $ MVo.NoteOff note vel

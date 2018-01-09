@@ -8,6 +8,7 @@ import Control.Concurrent
 import Control.Concurrent.MVar
 
 import Sound.MIDI.Message.Channel
+import Sound.MIDI.Message.Channel.Voice (normalVelocity)
 
 -- local
 import Utils
@@ -23,5 +24,6 @@ main = do
   sendToMIDIPlayer ← runMIDIPlayer
 
   runGUI GUIContext { allRows       = allRowsList
-                    , buttonHandler = \_ midiNote → sendToMIDIPlayer $ NoteOn midiNote (toVelocity 127)
+                    , buttonHandler = \_ midiNote → sendToMIDIPlayer
+                                                  $ NoteOn midiNote normalVelocity
                     }
