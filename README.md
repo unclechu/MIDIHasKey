@@ -23,6 +23,9 @@ in 12tet scale and even less in other micro scales.
 
 **Work in progress! Do not expect anything for now.**
 
+See https://github.com/metachronica/audio-midihaskey/projects/1 page that about progress of first
+release.
+
 # Known issues
 
 * https://github.com/commercialhaskell/stack/issues/2299
