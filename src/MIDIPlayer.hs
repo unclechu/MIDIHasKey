@@ -1,5 +1,6 @@
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module MIDIPlayer where
@@ -41,21 +42,23 @@ runMIDIPlayer = do
 
   (putMVar bus <$) $ forkIO $ handleExceptions $ do
     client ← newClientDefault $ symbolVal (Proxy ∷ Proxy AppName)
-    (port ∷ JMIDI.Port Output) ← newPort client (symbolVal (Proxy ∷ Proxy OutputPortName))
+    (port ∷ JMIDI.Port Output) ← newPort client $ symbolVal (Proxy ∷ Proxy OutputPortName)
 
-    let portBuf = lift ∘ getBuffer port  ∷ NFrames → MMonad e (Buffer Output)
-        getTask = lift (tryTakeMVar bus) ∷ MTask e
+    let getTask = lift $ tryTakeMVar bus ∷ MTask e
 
         getTasks ∷ [MIDIPlayerAction] → MMonad e [MIDIPlayerAction]
         getTasks acc = getTask >>= \case Nothing → pure acc
                                          Just x  → getTasks $ x : acc
 
+        getPortBuf = getBuffer port >=> \x → x <$ clearBuffer x
+
         processCallback ∷ ThrowsErrno e ⇒ NFrames → MMonad e ()
-        processCallback nframes
+        processCallback (lift ∘ getPortBuf → getBuf)
           = getTasks []
             <&> map (action2midi • MMsg.Channel)
-            >>= \case [] → pure ()
-                      list → do buf ← portBuf nframes
+            >>= \case [] → () <$ getBuf -- Just clearing the buffer.
+                                        -- Or it triggers old event every iteration.
+                      list → do buf ← getBuf
                                 forM_ list $ writeEvent buf $ NFrames 0
 
     JACK.withProcess client processCallback $ activate client
