@@ -23,7 +23,10 @@ main = do
 
   sendToMIDIPlayer ← runMIDIPlayer
 
-  runGUI GUIContext { allRows       = allRowsList
-                    , buttonHandler = \_ midiNote → sendToMIDIPlayer
-                                                  $ NoteOn midiNote normalVelocity
+  runGUI GUIContext { allRows            = allRowsList
+
+                    , noteButtonHandler  = \_ midiNote → sendToMIDIPlayer
+                                                       $ NoteOn midiNote normalVelocity
+
+                    , panicButtonHandler = sendToMIDIPlayer Panic
                     }

@@ -21,34 +21,38 @@ import Keys
 
 data GUIContext
   = GUIContext
-  { allRows ∷ [OneRow]
-  , buttonHandler ∷ RowKey → Pitch → IO ()
+  { allRows            ∷ [OneRow]
+  , noteButtonHandler  ∷ RowKey → Pitch → IO ()
+  , panicButtonHandler ∷ IO ()
   }
 
 
 mainWnd ∷ GUIContext → IO ()
 mainWnd ctx = do
   mainFrame ← frameFixed [text := symbolVal (Proxy ∷ Proxy WindowTitle)]
+  let sBtn = smallButton mainFrame
 
   allButtons ←
     let getButton ∷ RowEl → IO (RowKey, Button ())
         getButton (rowKey, label, midi)
-          = smallButton mainFrame props <&> (rowKey,)
+          = sBtn props <&> (rowKey,)
           where props = [ text       := label ⧺ fmap superscript (show $ fromPitch midi)
-                        , on command := buttonHandler ctx rowKey midi
+                        , on command := noteButtonHandler ctx rowKey midi
                         ]
 
      in mapM (mapM getButton) $ allRows ctx
+
+  panicBtn ← sBtn [text := "Panic", on command := panicButtonHandler ctx]
 
   let buttonsMap ∷ HashMap RowKey (Button ())
       buttonsMap = unions $ fmap fromList allButtons
 
   set mainFrame
-    [ layout := margin 5 $ boxed "Keyboard"
-                         $ margin 5
-                         $ column 5
-                         $ reverse
-                         $ fmap (hfloatCenter ∘ row 5 ∘ fmap (snd • widget)) allButtons
+    [ layout := margin 5 $ column 5
+        [ widget panicBtn
+        , boxed "Keyboard" $ margin 5 $ column 5 $ reverse $
+          fmap (hfloatCenter ∘ row 5 ∘ fmap (snd • widget)) allButtons
+        ]
     ]
 
 
