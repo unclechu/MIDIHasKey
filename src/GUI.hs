@@ -22,7 +22,7 @@ import Keys
 data GUIContext
   = GUIContext
   { allRows            ∷ [OneRow]
-  , noteButtonHandler  ∷ RowKey → Pitch → IO ()
+  , noteButtonHandler  ∷ RowKey → Pitch → Bool → IO ()
   , panicButtonHandler ∷ IO ()
   }
 
@@ -37,7 +37,8 @@ mainWnd ctx = do
         getButton (rowKey, label, midi)
           = sBtn props <&> (rowKey,)
           where props = [ text       := label ⧺ fmap superscript (show $ fromPitch midi)
-                        , on command := noteButtonHandler ctx rowKey midi
+                        , on click   := const $ noteButtonHandler ctx rowKey midi True
+                        , on unclick := const $ noteButtonHandler ctx rowKey midi False
                         ]
 
      in mapM (mapM getButton) $ allRows ctx

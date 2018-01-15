@@ -23,10 +23,12 @@ main = do
 
   sendToMIDIPlayer ← runMIDIPlayer
 
-  runGUI GUIContext { allRows            = allRowsList
+  runGUI GUIContext { allRows = allRowsList
 
-                    , noteButtonHandler  = \_ midiNote → sendToMIDIPlayer
-                                                       $ NoteOn midiNote normalVelocity
+                    , noteButtonHandler =
+                        \_ midiNote isPressed →
+                          let f = if isPressed then NoteOn else NoteOff
+                           in sendToMIDIPlayer $ f midiNote normalVelocity
 
                     , panicButtonHandler = sendToMIDIPlayer Panic
                     }
