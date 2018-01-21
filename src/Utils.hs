@@ -13,8 +13,10 @@ module Utils where
 import Prelude.Unicode
 import GHC.TypeLits
 import Data.Proxy
+import Data.Word
 import Control.Monad ((<$!>))
 
+import Sound.JACK
 import Sound.MIDI.Message.Channel
 
 
@@ -30,6 +32,22 @@ type family Len (a ∷ k) ∷ Nat where
 -- Key-type to MIDI key
 nat2MidiKey ∷ (KnownNat a) ⇒ Proxy a → Pitch
 nat2MidiKey = toPitch ∘ fromInteger ∘ natVal
+
+succNFrames ∷ NFrames → NFrames
+succNFrames (NFrames x) = NFrames $ succ x
+{-# INLINE succNFrames #-}
+
+predNFrames ∷ NFrames → NFrames
+predNFrames (NFrames x) = NFrames $ pred x
+{-# INLINE predNFrames #-}
+
+subtractNFrames ∷ NFrames → NFrames → NFrames
+subtractNFrames (NFrames a) (NFrames b) = NFrames $ a - b
+{-# INLINE subtractNFrames #-}
+
+fromNFrames ∷ NFrames → Word32
+fromNFrames (NFrames x) = x
+{-# INLINE fromNFrames #-}
 
 superscript ∷ Char → Char
 superscript = \case '1' → '¹' ; '2' → '²' ; '3' → '³' ; '4' → '⁴' ; '5' → '⁵'

@@ -5,19 +5,20 @@ license:             GPL-3
 author:              "Viacheslav Lotsmanov"
 maintainer:          "Viacheslav Lotsmanov <lotsmanov89@gmail.com>"
 copyright:           "2018 Viacheslav Lotsmanov"
-
-extra-source-files:
-  - README.md
-  - ChangeLog.md
-
 category:            Audio
 synopsis:            Virtual MIDI keyboard for microtonal music
+
 description:
   Virtual MIDI keyboard for microtonal music.
   .
   TODO more description info.
 
+extra-source-files:
+  - README.md
+  - ChangeLog.md
+
 dependencies:
+  - array
   - base >= 4.7 && < 5
   - base-unicode-symbols
   - explicit-exception
@@ -34,8 +35,8 @@ library:
 
 executables:
   midihaskey:
-    main:                Main.hs
-    source-dirs:         app
+    main: Main.hs
+    source-dirs: app
     ghc-options:
       - -O2
       - -threaded
