@@ -1,9 +1,11 @@
 {-# LANGUAGE UnicodeSyntax #-}
 
 import Prelude.Unicode
-import Data.Proxy
 
+import Data.Proxy
 import Data.Function
+
+import Control.Monad
 import Control.Concurrent
 import Control.Concurrent.MVar
 
@@ -28,7 +30,7 @@ main = do
                     , noteButtonHandler =
                         \_ midiNote isPressed →
                           let f = if isPressed then NoteOn else NoteOff
-                           in sendToMIDIPlayer $ f midiNote normalVelocity
+                           in void $ forkIO $ sendToMIDIPlayer $ f midiNote normalVelocity
 
-                    , panicButtonHandler = sendToMIDIPlayer Panic
+                    , panicButtonHandler = void $ forkIO $ sendToMIDIPlayer Panic
                     }

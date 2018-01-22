@@ -10,6 +10,13 @@ microtonal scales such as 17tet, 19tet, 22tet and any other, because these won't
 equal octaves, and we have some unused keys,‥ so wasteful when we have just about 2 and half octaves
 in 12tet scale and even less in other micro scales.
 
+## WARNING!
+
+**Work in progress! Do not expect anything for now.**
+
+See https://github.com/metachronica/audio-midihaskey/projects/1 page that about progress of first
+release.
+
 ## Supported OS
 
 * GNU/Linux
@@ -18,13 +25,24 @@ in 12tet scale and even less in other micro scales.
 
 * [wxWidgets](http://wxwidgets.org/)
 * [JACK Audio Connection Kit](http://jackaudio.org/)
+* [GCC](https://gcc.gnu.org/) __>=6.4.*__ (maybe lower, but must support C++17)
 
-## WARNING!
+## Usage (from build to run)
 
-**Work in progress! Do not expect anything for now.**
+```bash
+$ ./env.sh stack build --install-ghc
+$ (cd midiplayer && make)
+$ env PATH="midiplayer/build:$PATH" stack exec midihaskey
+```
 
-See https://github.com/metachronica/audio-midihaskey/projects/1 page that about progress of first
-release.
+## More info
+
+Real-time critical part (see [midiplayer](./midiplayer)) written in C++ because Haskell runtime with
+[jack](http://hackage.haskell.org/package/jack) package produces a lot of XRUNs, especially when
+"Panic" is triggered (it triggers 2048 MIDI events). I've tried to optimize that by avoiding lists,
+using `IOArray`s (only for "Panic") and `IORef`s but it haven't helped. MIDI events still generated
+and constructed in Haskell code, this C++ part just absorbs events as byte-code from stdin, puts
+them to queue and then triggers them in process callback, this works perfect.
 
 # Known issues
 

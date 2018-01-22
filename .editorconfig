@@ -1,18 +1,19 @@
 root = true
 
-[*.{hs,cabal,yaml,md,sh}]
+[*.{hs,cabal,yaml,md,sh,c++,h++}]
 indent_style = space
 indent_size = 2
 end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[*.{hs,yaml,md}]
+[*.{hs,yaml,md,c++,h++}]
 max_line_length = 100
 
 [*.md]
 trim_trailing_whitespace = false
 
-[*.sh]
-indent_style = tab
+[{*.sh,Makefile}]
 max_line_length = 80
+indent_style = tab
+indent_size = 4
