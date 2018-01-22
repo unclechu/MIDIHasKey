@@ -135,7 +135,7 @@ void read_pipe_loop(State_t *state)
         for (size_t i=0; i<ev_size; ++i) {
           char byte;
           std::cin.read(&byte, sizeof(jack_midi_data_t));
-          ev[i] = (unsigned char) byte;
+          ev[i] = (jack_midi_data_t) byte;
         }
 
         events[n] = std::pair<jack_midi_data_t*, size_t>(ev, ev_size);
