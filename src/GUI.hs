@@ -16,12 +16,13 @@ import Sound.MIDI.Message.Channel
 -- local
 import Types
 import Utils
-import Keys
+import Keys.Types
+import Keys.Specific.GUI
 
 
 data GUIContext
   = GUIContext
-  { allRows            ∷ [OneRow]
+  { allRows            ∷ [GUIKeysRow]
   , noteButtonHandler  ∷ RowKey → Pitch → Bool → IO ()
   , panicButtonHandler ∷ IO ()
   }
@@ -33,7 +34,7 @@ mainWnd ctx = do
   let sBtn = smallButton mainFrame
 
   allButtons ←
-    let getButton ∷ RowEl → IO (RowKey, Button ())
+    let getButton ∷ GUIKeyOfRow → IO (RowKey, Button ())
         getButton (rowKey, label, midi)
           = sBtn props <&> (rowKey,)
           where props = [ text       := label ⧺ fmap superscript (show $ fromPitch midi)

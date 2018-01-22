@@ -14,14 +14,16 @@ import Sound.MIDI.Message.Channel.Voice (normalVelocity)
 
 -- local
 import Utils
-import Keys
 import GUI
 import MIDIPlayer
+import HandleKeyboard
+import Keys.Types (AllKeysRows)
+import Keys.Specific.GUI (getAllGUIRows)
 
 
 main = do
   let startMidiKey = toPitch 20
-      allRowsList = getAllRows startMidiKey (Proxy ∷ Proxy AllRows)
+      allRowsList = getAllGUIRows startMidiKey (Proxy ∷ Proxy AllKeysRows)
 
   sendToMIDIPlayer ← runMIDIPlayer
 

@@ -22,6 +22,7 @@ dependencies:
   - base-unicode-symbols
   - bytestring
   - hashable
+  - linux-evdev
   - midi
   - process
   - singletons

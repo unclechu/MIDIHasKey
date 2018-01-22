@@ -7,3 +7,4 @@ extra-deps:
   - wxc-0.92.3.0
   - wxcore-0.92.3.0
   - wxdirect-0.92.3.0
+  - linux-evdev-0.3.2

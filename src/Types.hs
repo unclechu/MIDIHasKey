@@ -10,6 +10,4 @@ import GHC.TypeLits
 import Utils
 
 
-type AppName        = "MIDIHasKey"
-type WindowTitle    = "MIDIHasKey — Virtual MIDI keyboard for microtonal music"
-type OutputPortName = "output"
+type WindowTitle = "MIDIHasKey — Virtual MIDI keyboard for microtonal music"
