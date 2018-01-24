@@ -9,6 +9,8 @@ import Control.Monad
 import Control.Concurrent
 import Control.Concurrent.MVar
 
+import System.Environment (getArgs)
+
 import Sound.MIDI.Message.Channel
 import Sound.MIDI.Message.Channel.Voice (normalVelocity)
 
@@ -26,6 +28,8 @@ main = do
       allRowsList = getAllGUIRows startMidiKey (Proxy ∷ Proxy AllKeysRows)
 
   sendToMIDIPlayer ← runMIDIPlayer
+
+  getArgs >>= \x → runKeyboardHandling HandleKeyboardContext { devices = x }
 
   runGUI GUIContext { allRows = allRowsList
 
