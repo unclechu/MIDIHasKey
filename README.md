@@ -17,6 +17,11 @@ in 12tet scale and even less in other micro scales.
 See https://github.com/metachronica/audio-midihaskey/projects/1 page that about progress of first
 release.
 
+For now you can:
+* Play notes by pressing keys on keyboard you set to handle
+* Play notes by pressing GUI buttons
+* Trigger note-offs for everything by pressing `Panic` button
+
 ## Supported OS
 
 * GNU/Linux
