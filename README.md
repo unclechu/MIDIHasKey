@@ -10,6 +10,8 @@ microtonal scales such as 17tet, 19tet, 22tet and any other, because these won't
 equal octaves, and we have some unused keys,‥ so wasteful when we have just about 2 and half octaves
 in 12tet scale and even less in other micro scales.
 
+![Screenshot](./artwork/readme-screenshot.png)
+
 ## WARNING!
 
 **Work in progress! Do not expect anything for now.**
