@@ -2,7 +2,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE ViewPatterns #-}
 
 module MIDIPlayer where
@@ -16,7 +15,6 @@ import           Data.ByteString.Lazy.Char8 as BS
 import           Control.Monad
 import           Control.Concurrent
 import           Control.Concurrent.MVar
-import           Control.Exception
 
 import           Sound.MIDI.Message as MMsg
 import           Sound.MIDI.Message.Channel as MCh
@@ -29,29 +27,29 @@ import           System.Process
 import Types
 import Utils
 
-foreign import ccall "exit" exit ∷ IO ()
 
-type MIDIPlayerBus = MVar MIDIPlayerAction
+type MIDIPlayerBus    = MVar MIDIPlayerAction
+type MIDIPlayerSender = MIDIPlayerAction → IO ()
 
 data MIDIPlayerAction
-  = NoteOn  Pitch Velocity
-  | NoteOff Pitch Velocity
+  = NoteOn  Channel Pitch Velocity
+  | NoteOff Channel Pitch Velocity
   | Panic
   deriving (Show, Eq)
 
 
-runMIDIPlayer ∷ IO (MIDIPlayerAction → IO ())
+runMIDIPlayer ∷ IO MIDIPlayerSender
 runMIDIPlayer = do
   (bus ∷ MIDIPlayerBus) ← newEmptyMVar
 
-  (putMVar bus <$) $ forkIO $ protect $ do
+  (putMVar bus <$) $ forkIO $ catchThreadFail "MIDI Player" $ do
     (Just inHdl, _, _, !_) ← createProcess (proc "midiplayer" []) {std_in = CreatePipe}
     hSetBuffering inHdl NoBuffering
     hSetBinaryMode inHdl True
 
     let printEv ev = do IO.hPrint inHdl $ BS.length ev -- Print size as line
-                        BS.hPut inHdl ev -- Print bytes of an event
-                        IO.hPutStrLn inHdl "" -- Terminate an event with empty line
+                        BS.hPut inHdl ev               -- Print bytes of an event
+                        IO.hPutStrLn inHdl ""          -- Terminate an event with empty line
 
     forever $ action2midi <$> takeMVar bus >>= \case
 
@@ -65,16 +63,12 @@ runMIDIPlayer = do
         forM_ events $ toBSEvent • printEv
         IO.hPutStrLn inHdl "" -- Terminate "multiple" command with an empty line
 
-  where protect = handle
-                $ \(e ∷ SomeException) → do IO.hPutStrLn IO.stderr "MIDI Player thread is failed!"
-                                            exit
-
 
 action2midi ∷ MIDIPlayerAction → [MCh.T]
 action2midi = \case
-  NoteOn  note vel → [MCh.Cons (toChannel 0) $ Voice $ MVo.NoteOn  note vel]
-  NoteOff note vel → [MCh.Cons (toChannel 0) $ Voice $ MVo.NoteOff note vel]
-  Panic            → panic
+  NoteOn  ch note vel → [MCh.Cons ch $ Voice $ MVo.NoteOn  note vel]
+  NoteOff ch note vel → [MCh.Cons ch $ Voice $ MVo.NoteOff note vel]
+  Panic               → panic
 
 -- Send note-off for every note and for every channel.
 panic ∷ [MCh.T]

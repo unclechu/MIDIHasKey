@@ -39,7 +39,7 @@ getDeviceReaders devicesPaths =
 
           Just KeyEvent
             { evKeyEventType = (filterKeyPressRelease → Just keyState)
-            , evKeyCode      = (flip lookup allKeys → Just key)
+            , evKeyCode      = (flip lookup allKeys   → Just key)
             } → pure (keyState, key)
 
           _ → parseEvent deviceReader

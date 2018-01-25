@@ -19,6 +19,7 @@ import Utils
 import GUI
 import MIDIPlayer
 import HandleKeyboard
+import EventHandler
 import Keys.Types (AllKeysRows)
 import Keys.Specific.GUI (getAllGUIRows)
 
@@ -28,15 +29,18 @@ main = do
       allRowsList = getAllGUIRows startMidiKey (Proxy ∷ Proxy AllKeysRows)
 
   sendToMIDIPlayer ← runMIDIPlayer
+  evIface ← runEventHandler sendToMIDIPlayer
+
+  let sendToEventHandler = handleEvent evIface
 
   getArgs >>= \x → runKeyboardHandling HandleKeyboardContext { devices = x }
 
   runGUI GUIContext { allRows = allRowsList
 
                     , noteButtonHandler =
-                        \_ midiNote isPressed →
-                          let f = if isPressed then NoteOn else NoteOff
-                           in void $ forkIO $ sendToMIDIPlayer $ f midiNote normalVelocity
+                        \rowKey isPressed →
+                          let ev = if isPressed then KeyPress rowKey else KeyRelease rowKey
+                           in void $ forkIO $ sendToEventHandler ev
 
-                    , panicButtonHandler = void $ forkIO $ sendToMIDIPlayer Panic
+                    , panicButtonHandler = void $ forkIO $ sendToEventHandler PanicEvent
                     }

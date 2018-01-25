@@ -32,8 +32,10 @@ release.
 ```bash
 $ ./env.sh stack build --install-ghc
 $ (cd midiplayer && make)
-$ env PATH="midiplayer/build:$PATH" stack exec midihaskey
+$ env PATH="midiplayer/build:$PATH" stack exec midihaskey -- /dev/input/by-id/usb-04b4_6018-event-kbd
 ```
+
+Where `/dev/input/by-id/usb-04b4_6018-event-kbd` is your keyboard device path.
 
 ## More info
 

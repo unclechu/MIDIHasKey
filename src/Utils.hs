@@ -1,5 +1,7 @@
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- Type-level
 {-# LANGUAGE DataKinds #-}
@@ -8,15 +10,22 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# LANGUAGE ForeignFunctionInterface #-}
+
 module Utils where
 
 import Prelude.Unicode
 import GHC.TypeLits
 import Data.Proxy
 import Data.Word
+
 import Control.Monad ((<$!>))
+import Control.Exception (SomeException, handle)
 
 import Sound.MIDI.Message.Channel
+import System.IO (hPutStrLn, hPrint, stderr)
+
+foreign import ccall "exit" exit ∷ IO ()
 
 
 data (a ∷ k) ↔ b
@@ -37,6 +46,7 @@ superscript = \case '1' → '¹' ; '2' → '²' ; '3' → '³' ; '4' → '⁴' ;
                     '6' → '⁶' ; '7' → '⁷' ; '8' → '⁸' ; '9' → '⁹' ; '0' → '⁰'
                     x → x
 
+
 -- Left-to-right composition, just like (>=>) for monads.
 (•) ∷ (a → b) → (b → c) → (a → c)
 (•) = flip (∘)
@@ -55,3 +65,11 @@ infixr 5 <&>
 (<&!>) = flip (<$!>)
 {-# INLINE (<&!>) #-}
 infixr 5 <&!>
+
+
+-- Helps to prevent undefined behavior when application still working after some of its subsystem is
+-- failed. Usually it goes okay, but if something unexpectedly goes wrong, we shouldn't continue
+-- working and making user to be confused.
+catchThreadFail ∷ String → IO () → IO ()
+catchThreadFail (("'" ⧺) → (⧺ "' thread is failed!") → failMsg) =
+  handle $ \(e ∷ SomeException) → hPutStrLn stderr failMsg >> hPrint stderr e >> exit
