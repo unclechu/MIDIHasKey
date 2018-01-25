@@ -13,6 +13,7 @@ import Prelude.Unicode
 import Data.HashMap.Strict hiding (map)
 
 import Control.Monad
+import Control.Concurrent (forkIO)
 
 import System.Linux.Input.Event
 import System.IO (Handle, IOMode (ReadMode), openBinaryFile)
@@ -21,13 +22,15 @@ import System.IO (Handle, IOMode (ReadMode), openBinaryFile)
 import Utils
 import Keys.Types
 import Keys.Specific.HandleKeyboard
+import EventHandler
 
 
-type DeviceReader = IO (Bool, RowKey)
+type DeviceReader = IO (RowKey, Bool)
 
 data HandleKeyboardContext
   = HandleKeyboardContext
-  { devices ∷ [FilePath]
+  { devices                ∷ [FilePath]
+  , handleKeyboardKeyEvent ∷ RowKey → Bool → IO ()
   }
 
 
@@ -40,7 +43,7 @@ getDeviceReaders devicesPaths =
           Just KeyEvent
             { evKeyEventType = (filterKeyPressRelease → Just keyState)
             , evKeyCode      = (flip lookup allKeys   → Just key)
-            } → pure (keyState, key)
+            } → pure (key, keyState)
 
           _ → parseEvent deviceReader
 
@@ -51,6 +54,13 @@ getDeviceReaders devicesPaths =
 
 
 runKeyboardHandling ∷ HandleKeyboardContext → IO ()
-runKeyboardHandling ctx = do
-  eventReaders ← getDeviceReaders $ devices ctx
-  pure ()
+runKeyboardHandling ctx =
+  getDeviceReaders devices' <&> zip devices' >>= mapM_ (uncurry runReader)
+
+  where devices' = devices ctx
+        readerThreadName x = "Keyboard events reader for '" ⧺ x ⧺ "'"
+
+        runReader ∷ FilePath → DeviceReader → IO ()
+        runReader devPath devReader =
+          void $ forkIO $ catchThreadFail (readerThreadName devPath) $ forever $
+            devReader >>= uncurry (handleKeyboardKeyEvent ctx)

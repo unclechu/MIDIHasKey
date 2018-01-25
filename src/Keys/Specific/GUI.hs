@@ -11,9 +11,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Keys.Specific.GUI
-     ( GUIKeyOfRow
+     ( allGUIRows
+     , GUIKeyOfRow
      , GUIKeysRow
-     , GetAllGUIRows (..)
      ) where
 
 import Prelude.Unicode
@@ -27,36 +27,32 @@ import Sound.MIDI.Message.Channel
 -- local
 import Keys.Types
 import Keys.Helpers
+import Utils (type (↔))
 
 
-type GUIKeyOfRow = (RowKey, String, Pitch)
+type GUIKeyOfRow = (RowKey, String)
 type GUIKeysRow  = [GUIKeyOfRow]
 
 
-class GetAllGUIRows a where
-  getAllGUIRows ∷ Pitch → Proxy a → [GUIKeysRow]
-instance GetAllGUIRows '[] where
-  getAllGUIRows _ Proxy = []
-instance (GetAllGUIRows t, KnownList l, KeyRow l, KnownNat n, l ~ RowList r, n ~ RowOffset r)
-  ⇒ GetAllGUIRows (r ': t) where
-  getAllGUIRows n Proxy = getRow n proxies : getAllGUIRows n (Proxy ∷ Proxy t)
+class AllRows a where
+  getAllRows ∷ Proxy a → [GUIKeysRow]
 
-    where proxies = (Proxy ∷ Proxy l, Proxy ∷ Proxy n)
+instance AllRows '[] where
+  getAllRows Proxy = []
 
-          getRow ∷ (KeyRow l, KnownNat o) ⇒ Pitch → (Proxy l, Proxy o) → GUIKeysRow
-          getRow n (listProxy, offsetProxy) = mappedRow [startFrom..] listProxy
-            where startFrom = toPitch $ fromPitch n + fromInteger (natVal offsetProxy)
+instance (RowKeys h, AllRows t) ⇒ AllRows (h ': t) where
+  getAllRows Proxy = getRowKeys (Proxy ∷ Proxy h) : getAllRows (Proxy ∷ Proxy t)
 
 
--- Internal helper
-class KeyRow (a ∷ [(RowKey, Symbol, Nat)]) where
-  mappedRow ∷ [Pitch] -- ^ List of pitches instead of start pitch for future flexibility
-            → Proxy a
-            → GUIKeysRow
+class RowKeys a where
+  getRowKeys ∷ Proxy a → GUIKeysRow
 
-instance KeyRow '[] where
-  mappedRow _ Proxy = []
-instance (SingI k, KnownSymbol s, KeyRow t, KnownNat m) ⇒ KeyRow ('(k, s, m) ': t) where
-  mappedRow (pitch : ps) Proxy
-    = (fromSing (sing ∷ Sing k), symbolVal (Proxy ∷ Proxy s), pitch)
-    : mappedRow ps (Proxy ∷ Proxy t)
+instance (RowKeys h, RowKeys t) ⇒ RowKeys (h ↔ t) where
+  getRowKeys Proxy = getRowKeys (Proxy ∷ Proxy h) ⧺ getRowKeys (Proxy ∷ Proxy t)
+
+instance (SingI x, s ~ GetLabel x, KnownSymbol s) ⇒ RowKeys (x ∷ RowKey) where
+  getRowKeys Proxy = [(fromSing (sing ∷ Sing x), symbolVal (Proxy ∷ Proxy s))]
+
+
+allGUIRows ∷ [GUIKeysRow]
+allGUIRows = getAllRows (Proxy ∷ Proxy AllKeysRows)

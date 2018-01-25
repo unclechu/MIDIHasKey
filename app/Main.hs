@@ -20,27 +20,25 @@ import GUI
 import MIDIPlayer
 import HandleKeyboard
 import EventHandler
-import Keys.Types (AllKeysRows)
-import Keys.Specific.GUI (getAllGUIRows)
+import Keys.Types
 
 
 main = do
-  let startMidiKey = toPitch 20
-      allRowsList = getAllGUIRows startMidiKey (Proxy ∷ Proxy AllKeysRows)
-
   sendToMIDIPlayer ← runMIDIPlayer
   evIface ← runEventHandler sendToMIDIPlayer
 
   let sendToEventHandler = handleEvent evIface
 
-  getArgs >>= \x → runKeyboardHandling HandleKeyboardContext { devices = x }
+      keyHandler ∷ RowKey → Bool → IO ()
+      keyHandler rowKey isPressed =
+        let ev = if isPressed then KeyPress rowKey else KeyRelease rowKey
+         in void $ forkIO $ sendToEventHandler ev
 
-  runGUI GUIContext { allRows = allRowsList
+  getArgs >>= \x → runKeyboardHandling HandleKeyboardContext { devices = x
+                                                             , handleKeyboardKeyEvent = keyHandler
+                                                             }
 
-                    , noteButtonHandler =
-                        \rowKey isPressed →
-                          let ev = if isPressed then KeyPress rowKey else KeyRelease rowKey
-                           in void $ forkIO $ sendToEventHandler ev
-
+  runGUI GUIContext { noteButtonHandler  = keyHandler
                     , panicButtonHandler = void $ forkIO $ sendToEventHandler PanicEvent
+                    , getPitchMapping    = getAppState evIface <&> pitchMap
                     }

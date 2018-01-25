@@ -12,9 +12,6 @@ module Keys.Helpers where
 import Prelude.Unicode
 import GHC.TypeLits
 
-import Data.Kind (Constraint)
-import Data.Singletons.TH (SingI)
-
 -- local
 import Utils (type (↔), Len)
 import Keys.Types
@@ -41,17 +38,3 @@ type family GetEvDevKey (a ∷ RowKey) ∷ Nat where
 type family EvDevKeyByRowKey (l ∷ [(RowKey, Symbol, Nat)]) (k ∷ RowKey) ∷ Nat where
   EvDevKeyByRowKey ('(k, _, evDevKey) ': _) k = evDevKey
   EvDevKeyByRowKey (_ ': t) k = EvDevKeyByRowKey t k
-
-
--- A constraint for `Known*` type-level values of `RowKeyMap`
-type family KnownList (a ∷ [(RowKey, Symbol, Nat)]) ∷ Constraint where
-  KnownList '[] = ()
-  KnownList (h ': t) = (KnownItem h, KnownList t)
-
-type family KnownItem (a ∷ (RowKey, Symbol, Nat)) ∷ Constraint where
-  KnownItem '(r, s, n) = (SingI r, KnownSymbol s, KnownNat n)
-
--- Build type-level list from keys row glued with (↔) combinator
-type family RowList (a ∷ k) ∷ [(RowKey, Symbol, Nat)] where
-  RowList (x ↔ xs) = '(x, GetLabel x, GetEvDevKey x) ': RowList xs
-  RowList x = '(x, GetLabel x, GetEvDevKey x) ': '[]
