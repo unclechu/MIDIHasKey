@@ -1,4 +1,5 @@
 {-# LANGUAGE UnicodeSyntax #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 import Prelude.Unicode
 
@@ -24,8 +25,18 @@ import Keys.Types
 
 
 main = do
-  sendToMIDIPlayer ← runMIDIPlayer
-  evIface ← runEventHandler sendToMIDIPlayer
+  (appExitBus  ∷ MVar ())             ← newEmptyMVar
+  (keyStateBus ∷ MVar (RowKey, Bool)) ← newEmptyMVar
+
+  evIface ← runMIDIPlayer >>= \sendToMP →
+
+    let evListener (KeyPress   key) = putMVar keyStateBus (key, True)
+        evListener (KeyRelease key) = putMVar keyStateBus (key, False)
+        evListener _                = pure ()
+
+     in runEventHandler EventHandlerContext { sendToMIDIPlayer = sendToMP
+                                            , eventsListener   = evListener
+                                            }
 
   let sendToEventHandler = handleEvent evIface
 
@@ -38,7 +49,14 @@ main = do
                                                              , handleKeyboardKeyEvent = keyHandler
                                                              }
 
-  runGUI GUIContext { noteButtonHandler  = keyHandler
-                    , panicButtonHandler = void $ forkIO $ sendToEventHandler PanicEvent
-                    , getPitchMapping    = getAppState evIface <&> pitchMap
-                    }
+  guiIface ←
+    runGUI GUIContext { getPitchMapping    = getAppState evIface <&> pitchMap
+                      , appExitHandler     = void $ forkIO $ putMVar appExitBus ()
+                      , panicButtonHandler = void $ forkIO $ sendToEventHandler PanicEvent
+                      , noteButtonHandler  = keyHandler
+                      }
+
+  void $ forkIO $ catchThreadFail "Main module listener for key state updates" $ forever $
+    takeMVar keyStateBus >>= uncurry (keyButtonStateUpdate guiIface)
+
+  takeMVar appExitBus

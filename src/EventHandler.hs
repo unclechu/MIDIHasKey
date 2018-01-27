@@ -7,9 +7,10 @@
 -- handles changes of this state and provides API to get current state.
 module EventHandler
      ( runEventHandler
-     , EventToHandle (..)
+     , EventHandlerContext (..)
      , EventHandlerInterface (..)
      , AppState (..)
+     , EventToHandle (..)
      ) where
 
 import Prelude hiding (lookup)
@@ -19,6 +20,7 @@ import Data.IORef
 import Data.HashMap.Strict
 
 import Control.Monad
+import Control.Arrow
 import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
 
@@ -32,8 +34,27 @@ import Keys.Specific.EventHandler
 import MIDIPlayer
 
 
-type EventHandlerBus    = MVar EventToHandle
-type EventHandlerSender = EventToHandle → IO ()
+data EventHandlerContext
+  = EventHandlerContext
+  { sendToMIDIPlayer ∷ MIDIPlayerSender
+  , eventsListener   ∷ EventsListener
+  }
+
+data EventHandlerInterface
+  = EventHandlerInterface
+  { handleEvent ∷ EventHandlerSender
+  , getAppState ∷ IO AppState
+  }
+
+
+data AppState
+  = AppState
+  { baseKey   ∷ RowKey
+  , basePitch ∷ Pitch
+  , channel   ∷ Channel
+  , velocity  ∷ Velocity
+  , pitchMap  ∷ HashMap RowKey Pitch
+  } deriving (Show, Eq)
 
 data EventToHandle
   = KeyPress   RowKey
@@ -47,20 +68,10 @@ data EventToHandle
 
   deriving (Show, Eq)
 
-data EventHandlerInterface
-  = EventHandlerInterface
-  { handleEvent ∷ EventHandlerSender
-  , getAppState ∷ IO AppState
-  }
 
-data AppState
-  = AppState
-  { baseKey   ∷ RowKey
-  , basePitch ∷ Pitch
-  , channel   ∷ Channel
-  , velocity  ∷ Velocity
-  , pitchMap  ∷ HashMap RowKey Pitch
-  } deriving (Show, Eq)
+type EventHandlerBus    = MVar EventToHandle
+type EventHandlerSender = EventToHandle → IO ()
+type EventsListener     = EventToHandle → IO ()
 
 
 defaultAppState ∷ AppState
@@ -77,8 +88,8 @@ defaultAppState =
         basePitch' = toPitch 19 -- 20th in [1..128]
 
 
-runEventHandler ∷ MIDIPlayerSender → IO EventHandlerInterface
-runEventHandler sendToMP = do
+runEventHandler ∷ EventHandlerContext → IO EventHandlerInterface
+runEventHandler ctx = do
   (bus ∷ EventHandlerBus) ← newEmptyMVar
 
   (appStateRef ∷ IORef AppState) ← newIORef defaultAppState
@@ -92,20 +103,20 @@ runEventHandler sendToMP = do
       handle (KeyPress k) = do
         appState ← readIORef appStateRef
         case lookup k $ pitchMap appState of
-             Just x  → sendToMP $ NoteOn (channel appState) x $ velocity appState
+             Just x  → sendToMIDIPlayer ctx $ NoteOn (channel appState) x $ velocity appState
              Nothing → pure ()
 
       handle (KeyRelease k) = do
         appState ← readIORef appStateRef
         case lookup k $ pitchMap appState of
-             Just x  → sendToMP $ NoteOff (channel appState) x $ velocity appState
+             Just x  → sendToMIDIPlayer ctx $ NoteOff (channel appState) x $ velocity appState
              Nothing → pure ()
 
       handle (NewBasePitch p) = modifyIORef appStateRef $ updateState $ \s → s { basePitch = p }
       handle (NewChannel c)   = modifyIORef appStateRef $ updateState $ \s → s { channel   = c }
       handle (NewVelocity v)  = modifyIORef appStateRef $ updateState $ \s → s { velocity  = v }
 
-      handle PanicEvent = sendToMP Panic
+      handle PanicEvent = sendToMIDIPlayer ctx Panic
 
       updateState ∷ (AppState → AppState) → AppState → AppState
       updateState f oldState = if baseKey   newState /= baseKey   oldState
@@ -117,7 +128,9 @@ runEventHandler sendToMP = do
               baseKey'   = baseKey newState
               basePitch' = basePitch newState
 
-  (interface <$) $ forkIO $ catchThreadFail "Event Handler" $ forever $ takeMVar bus >>= handle
+  (interface <$) $ forkIO $ catchThreadFail "Event Handler" $ forever $
+    let notifyListener = forkIO ∘ catchThreadFail "Events listener notifier" ∘ eventsListener ctx
+     in takeMVar bus >>= (handle &&& notifyListener) • uncurry (>>)
 
 
 getPitchMapping ∷ RowKey → Pitch → HashMap RowKey Pitch
@@ -138,6 +151,7 @@ getPitchMapping baseKey basePitch = fromList (zip l lp) `union` fromList (zip r 
           if maxBound > next then Right [basePitch .. maxBound] else Left [basePitch, next]
 
 
+-- For extracting value from breakable monads
 eitherValue ∷ Either a a → a
 eitherValue (Left  x) = x
 eitherValue (Right x) = x

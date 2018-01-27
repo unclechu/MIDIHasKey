@@ -1,16 +1,25 @@
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-module GUI where
+module GUI
+     ( runGUI
+     , GUIContext (..)
+     , GUIInterface (..)
+     , KeyButtonStateUpdater
+     ) where
 
 import Prelude hiding (lookup)
 import Prelude.Unicode
 import GHC.TypeLits
 
 import Data.Proxy
+import Data.Maybe
 import Data.HashMap.Strict
 
 import Control.Monad
+import Control.Concurrent
+import Control.Concurrent.MVar
 
 import Graphics.UI.WX
 import Sound.MIDI.Message.Channel
@@ -24,14 +33,22 @@ import Keys.Specific.GUI
 
 data GUIContext
   = GUIContext
-  { noteButtonHandler  ∷ RowKey → Bool → IO ()
+  { getPitchMapping    ∷ IO (HashMap RowKey Pitch)
+  , appExitHandler     ∷ IO ()
   , panicButtonHandler ∷ IO ()
-  , getPitchMapping    ∷ IO (HashMap RowKey Pitch)
+  , noteButtonHandler  ∷ RowKey → Bool → IO ()
   }
 
+data GUIInterface
+  = GUIInterface
+  { keyButtonStateUpdate ∷ KeyButtonStateUpdater
+  }
 
-mainWnd ∷ GUIContext → IO ()
-mainWnd ctx = do
+type KeyButtonStateUpdater = RowKey → Bool → IO ()
+
+
+mainWnd ∷ GUIContext → MVar (RowKey, Bool) → IO ()
+mainWnd ctx keyBtnStateBus = do
   mainFrame ← frameFixed [text := symbolVal (Proxy ∷ Proxy WindowTitle)]
   let sBtn = smallButton mainFrame
   pitchMap ← getPitchMapping ctx
@@ -41,8 +58,10 @@ mainWnd ctx = do
         getButton (rowKey, label) = sBtn props <&> (rowKey,)
 
           where props = [ text       := btnLabel
-                        , on click   := const $ noteButtonHandler ctx rowKey True
-                        , on unclick := const $ noteButtonHandler ctx rowKey False
+                        , on click   := const $ noteButtonHandler ctx rowKey True  >> propagateEvent
+                        , on unclick := const $ noteButtonHandler ctx rowKey False >> propagateEvent
+                        , bgcolor    := keyBtnBgColor
+                        , color      := keyBtnFgColor
                         ]
 
                 btnLabel = case lookup rowKey pitchMap of
@@ -53,18 +72,40 @@ mainWnd ctx = do
      in forM allGUIRows $ mapM getButton
 
   panicBtn ← sBtn [text := "Panic", on command := panicButtonHandler ctx]
+  exitBtn  ← sBtn [text := "Exit",  on command := appExitHandler ctx]
 
   let buttonsMap ∷ HashMap RowKey (Button ())
       buttonsMap = unions $ fmap fromList allButtons
 
   set mainFrame
     [ layout := margin 5 $ column 5
-        [ widget panicBtn
+        [ row 5 [widget panicBtn, widget exitBtn]
         , boxed "Keyboard" $ margin 5 $ column 5 $ reverse $
           fmap (hfloatCenter ∘ row 5 ∘ fmap (snd • widget)) allButtons
         ]
     ]
 
+  void $ forkIO $ catchThreadFail "GUI listener for key button state updates" $ forever $ do
+    (rowKey, isPressed) ← takeMVar keyBtnStateBus
 
-runGUI ∷ GUIContext → IO ()
-runGUI = start ∘ mainWnd
+    pure ()
+    {- TODO FIXME it fails with segfaults :( maybe because `set` here isn't thread-safe
+    fromMaybe (pure ()) $
+      rowKey `lookup` buttonsMap
+        <&> flip set [ bgcolor := if isPressed then keyBtnPressedBgColor else keyBtnBgColor
+                     , color   := if isPressed then keyBtnPressedFgColor else keyBtnFgColor
+                     ]
+    -}
+
+
+runGUI ∷ GUIContext → IO GUIInterface
+runGUI ctx = do
+  (keyBtnStateBus ∷ MVar (RowKey, Bool)) ← newEmptyMVar
+  void $ forkIO $ catchThreadFail "Main GUI" $ start $ mainWnd ctx keyBtnStateBus
+  pure GUIInterface { keyButtonStateUpdate = curry $ putMVar keyBtnStateBus }
+
+keyBtnBgColor, keyBtnFgColor, keyBtnPressedBgColor, keyBtnPressedFgColor ∷ Color
+keyBtnBgColor        = colorSystem ColorBackground
+keyBtnFgColor        = colorSystem ColorBtnText
+keyBtnPressedBgColor = colorSystem ColorHighlight
+keyBtnPressedFgColor = colorSystem ColorHighlightText
