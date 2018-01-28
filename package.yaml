@@ -21,6 +21,7 @@ dependencies:
   - base >= 4.7 && < 5
   - base-unicode-symbols
   - bytestring
+  - gtk3
   - hashable
   - linux-evdev
   - midi
@@ -28,7 +29,6 @@ dependencies:
   - singletons
   - transformers
   - unordered-containers
-  - wx
 
 library:
   source-dirs: src

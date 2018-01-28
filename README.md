@@ -30,14 +30,20 @@ For now you can:
 
 ## Requirements
 
-* [wxWidgets](http://wxwidgets.org/)
-* [JACK Audio Connection Kit](http://jackaudio.org/)
-* [GCC](https://gcc.gnu.org/) __>=6.4.*__ (maybe lower, but must support C++17)
+* [GTK3](https://www.gtk.org/)
+* [JACK Audio Connection Kit](http://jackaudio.org/)  
+  For included JACK MIDI player application. It's optional (if you have your own app for that)
+  because for actual sending MIDI-events we have separated application so you could even write your
+  own app for your favourite audio/MIDI-server, or even a writer to a file.  
+  **TODO** For me: document an API for MIDI player. For now you can reverse-engeneer it looking
+  inside [this file](./midiplayer/src/main.c++).
+* [GCC](https://gcc.gnu.org/) __>=6.4.*__ (maybe lower, but must support C++17)  
+  To build MIDI players (so it's optional too if you use your own one).
 
 ## Usage (from build to run)
 
 ```bash
-$ ./env.sh stack build --install-ghc
+$ stack build --install-ghc
 $ (cd midiplayer && make)
 $ env PATH="midiplayer/build:$PATH" stack exec midihaskey -- /dev/input/by-id/usb-04b4_6018-event-kbd
 ```
@@ -52,17 +58,6 @@ Real-time critical part (see [midiplayer](./midiplayer)) written in C++ because 
 using `IOArray`s (only for "Panic") and `IORef`s but it haven't helped. MIDI events still generated
 and constructed in Haskell code, this C++ part just absorbs events as byte-code from stdin, puts
 them to queue and then triggers them in process callback, this works perfect.
-
-# Known issues
-
-* https://github.com/commercialhaskell/stack/issues/2299
-
-  `libwxc.so` could not be found during build process.  
-  Build **MIDIHasKey** by this command to solve it (you need to run this twice first time):
-
-  ```bash
-  $ ./env.sh stack build --install-ghc
-  ```
 
 # Author
 

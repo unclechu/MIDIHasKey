@@ -11,6 +11,7 @@ import Control.Concurrent
 import Control.Concurrent.MVar
 
 import System.Environment (getArgs)
+import System.IO (hPutStrLn, stderr)
 
 import Sound.MIDI.Message.Channel
 import Sound.MIDI.Message.Channel.Voice (normalVelocity)
@@ -60,3 +61,4 @@ main = do
     takeMVar keyStateBus >>= uncurry (keyButtonStateUpdate guiIface)
 
   takeMVar appExitBus
+  hPutStrLn stderr "Application is terminating…"
