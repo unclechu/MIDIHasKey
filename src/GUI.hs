@@ -1,6 +1,5 @@
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns #-}
 
 module GUI
      ( runGUI
@@ -13,7 +12,6 @@ import Prelude hiding (lookup)
 import Prelude.Unicode
 import GHC.TypeLits
 
-import Data.Bool
 import Data.Proxy
 import Data.Maybe
 import Data.HashMap.Strict
@@ -117,10 +115,12 @@ mainAppWindow ctx keyBtnStateBus = do
   let buttonsMap ∷ HashMap RowKey Button
       buttonsMap = unions $ fromList <$> allButtonsRows
 
-  -- TODO FIXME it doesn't visually indicate anything
   void $ forkIO $ catchThreadFail "GUI listener for key button state updates" $ forever $ do
-    (rowKey, bool buttonReleased buttonPressed → action) ← takeMVar keyBtnStateBus
-    fromMaybe (pure ()) $ rowKey `lookup` buttonsMap <&> postGUIAsync ∘ action
+    (rowKey, isPressed) ← takeMVar keyBtnStateBus
+
+    when isPressed $ fromMaybe (pure ()) $
+      rowKey `lookup` buttonsMap <&> postGUIAsync ∘ void ∘ widgetActivate
+
 
 myGUI ∷ GUIContext → MVar (RowKey, Bool) → IO ()
 myGUI ctx keyBtnStateBus = do
