@@ -54,6 +54,7 @@ data AppState
   , channel   ∷ Channel
   , velocity  ∷ Velocity
   , pitchMap  ∷ HashMap RowKey Pitch
+  , storedEv  ∷ HashMap RowKey StoredEvent
   } deriving (Show, Eq)
 
 data EventToHandle
@@ -74,6 +75,13 @@ type EventHandlerSender = EventToHandle → IO ()
 type EventsListener     = EventToHandle → IO ()
 
 
+-- We need this to trigger correct note-off when channel/base-key/base-pitch/channel is changed
+-- before last triggered note is released.
+data StoredEvent
+  = StoredNoteOn Channel Pitch Velocity
+  deriving (Show, Eq)
+
+
 defaultAppState ∷ AppState
 defaultAppState =
 
@@ -82,6 +90,7 @@ defaultAppState =
            , channel   = toChannel 0
            , velocity  = normalVelocity
            , pitchMap  = getPitchMapping baseKey' basePitch'
+           , storedEv  = empty
            }
 
   where baseKey'   = AKey
@@ -102,35 +111,56 @@ runEventHandler ctx = do
 
       handle (KeyPress k) = do
         appState ← readIORef appStateRef
+
         case lookup k $ pitchMap appState of
-             Just x  → sendToMIDIPlayer ctx $ NoteOn (channel appState) x $ velocity appState
+
+             Just p → do let ch     = channel appState
+                             vel    = velocity appState
+                             stored = StoredNoteOn ch p vel
+
+                         sendToMIDIPlayer ctx $ NoteOn ch p vel
+                         updateState $ \s → s { storedEv = insert k stored (storedEv s) }
+
              Nothing → pure ()
 
-      handle (KeyRelease k) = do
-        appState ← readIORef appStateRef
-        case lookup k $ pitchMap appState of
-             Just x  → sendToMIDIPlayer ctx $ NoteOff (channel appState) x $ velocity appState
-             Nothing → pure ()
+      handle (KeyRelease k) = readIORef appStateRef >>= \appState → eitherValue $ do
 
-      handle (NewBasePitch p) = modifyIORef appStateRef $ updateState $ \s → s { basePitch = p }
-      handle (NewChannel c)   = modifyIORef appStateRef $ updateState $ \s → s { channel   = c }
-      handle (NewVelocity v)  = modifyIORef appStateRef $ updateState $ \s → s { velocity  = v }
+        case lookup k $ storedEv appState of
+
+             Just (StoredNoteOn ch p vel) → Left $ do
+               sendToMIDIPlayer ctx $ NoteOff ch p vel
+               updateState $ \s → s { storedEv = k `delete` storedEv s }
+
+             Nothing → Right ()
+
+        pure $
+          case lookup k $ pitchMap appState of
+               Just x  → sendToMIDIPlayer ctx $ NoteOff (channel appState) x $ velocity appState
+               Nothing → pure ()
+
+      handle (NewBasePitch p) = updateState $ \s → s { basePitch = p }
+      handle (NewChannel c)   = updateState $ \s → s { channel   = c }
+      handle (NewVelocity v)  = updateState $ \s → s { velocity  = v }
 
       handle PanicEvent = sendToMIDIPlayer ctx Panic
 
-      updateState ∷ (AppState → AppState) → AppState → AppState
-      updateState f oldState = if baseKey   newState /= baseKey   oldState
-                               || basePitch newState /= basePitch oldState
-                                  then newState { pitchMap = getPitchMapping baseKey' basePitch' }
-                                  else newState
-
-        where newState   = f oldState
-              baseKey'   = baseKey newState
-              basePitch' = basePitch newState
+      updateState = modifyIORef' appStateRef ∘ updateStateMiddleware
 
   (interface <$) $ forkIO $ catchThreadFail "Event Handler" $ forever $
     let notifyListener = forkIO ∘ catchThreadFail "Events listener notifier" ∘ eventsListener ctx
      in takeMVar bus >>= (handle &&& notifyListener) • uncurry (>>)
+
+  where updateStateMiddleware ∷ (AppState → AppState) → AppState → AppState
+        updateStateMiddleware f oldState =
+
+          if baseKey   newState /= baseKey   oldState
+          || basePitch newState /= basePitch oldState
+             then newState { pitchMap = getPitchMapping baseKey' basePitch' }
+             else newState
+
+          where newState   = f oldState
+                baseKey'   = baseKey newState
+                basePitch' = basePitch newState
 
 
 getPitchMapping ∷ RowKey → Pitch → HashMap RowKey Pitch
