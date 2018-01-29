@@ -4,6 +4,7 @@
 module GUI
      ( runGUI
      , GUIContext (..)
+     , GUIInitialValues (..)
      , GUIInterface (..)
      , KeyButtonStateUpdater
      ) where
@@ -33,10 +34,19 @@ import Keys.Specific.GUI
 
 data GUIContext
   = GUIContext
-  { getPitchMapping    ∷ IO (HashMap RowKey Pitch)
+  { initialValues      ∷ GUIInitialValues
   , appExitHandler     ∷ IO ()
   , panicButtonHandler ∷ IO ()
   , noteButtonHandler  ∷ RowKey → Bool → IO ()
+  }
+
+data GUIInitialValues
+  = GUIInitialValues
+  { initialPitchMapping   ∷ HashMap RowKey Pitch
+  , initialChannel        ∷ Channel
+  , initialVelocity       ∷ Velocity
+  , initialOctave         ∷ Octave
+  , initialNotesPerOctave ∷ NotesPerOctave
   }
 
 data GUIInterface
@@ -57,7 +67,8 @@ mainAppWindow ctx keyBtnStateBus = do
           , windowModal := True
           ]
 
-  pitchMap ← getPitchMapping ctx
+  let pitchMapping = initialPitchMapping $ initialValues ctx
+      currentChannel = initialChannel $ initialValues ctx
 
   (allButtonsRows ∷ [[(RowKey, Button)]]) ←
     let getButton ∷ GUIKeyOfRow → IO (RowKey, Button)
@@ -70,7 +81,7 @@ mainAppWindow ctx keyBtnStateBus = do
           where onPress   = noteButtonHandler ctx rowKey True
                 onRelease = noteButtonHandler ctx rowKey False
 
-                btnLabel = case lookup rowKey pitchMap of
+                btnLabel = case lookup rowKey pitchMapping of
                                 -- +1 to shift from [0..127] to [1..128]
                                 Just x  → label ⧺ fmap superscript (show $ fromPitch x + 1)
                                 Nothing → label
@@ -85,8 +96,26 @@ mainAppWindow ctx keyBtnStateBus = do
   set panicBtn [buttonLabel := "Panic"]
   on panicBtn buttonActivated $ panicButtonHandler ctx
 
+  -- TODO FIXME
+  menu ← menuNew
+  set menu [menuTitle := "Select a MIDI channel"]
+
+  -- TODO FIXME
+  menuItem ← menuItemNew
+  set menuItem [menuItemLabel := "some item"]
+  on menuItem menuItemActivated $ putStrLn "some item is activated"
+
+  -- TODO FIXME
+  menuShellAppend menu menuItem
+
+  -- TODO FIXME
+  channelBtn ← buttonNew
+  set channelBtn [buttonLabel := "Channel: " ⧺ show (succ $ fromChannel currentChannel)]
+  on channelBtn buttonActivated $ menuPopup menu Nothing
+
   topButtons ← hBoxNew False 5
   containerAdd topButtons panicBtn
+  -- containerAdd topButtons channelBtn -- TODO FIXME
   containerAdd topButtons exitBtn
 
   keyRowsBox ← vBoxNew False 5

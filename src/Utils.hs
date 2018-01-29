@@ -73,3 +73,7 @@ infixr 5 <&!>
 catchThreadFail ∷ String → IO () → IO ()
 catchThreadFail (("'" ⧺) → (⧺ "' thread is failed!") → failMsg) =
   handle $ \(e ∷ SomeException) → hPutStrLn stderr failMsg >> hPrint stderr e >> exit
+
+dupe ∷ a → (a, a)
+dupe x = (x, x)
+{-# INLINE dupe #-}

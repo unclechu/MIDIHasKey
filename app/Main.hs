@@ -19,6 +19,7 @@ import Sound.MIDI.Message.Channel.Voice (normalVelocity)
 -- local
 import Utils
 import GUI
+import Types
 import MIDIPlayer
 import HandleKeyboard
 import EventHandler
@@ -37,6 +38,7 @@ main = do
 
      in runEventHandler EventHandlerContext { sendToMIDIPlayer = sendToMP
                                             , eventsListener   = evListener
+                                            , onNewAppState    = const $ pure () -- TODO
                                             }
 
   let sendToEventHandler = handleEvent evIface
@@ -50,11 +52,19 @@ main = do
                                                              , handleKeyboardKeyEvent = keyHandler
                                                              }
 
+  guiInitValues ← getAppState evIface <&> \appState →
+    GUIInitialValues { initialPitchMapping   = pitchMap       appState
+                     , initialChannel        = channel        appState
+                     , initialVelocity       = velocity       appState
+                     , initialOctave         = octave         appState
+                     , initialNotesPerOctave = notesPerOctave appState
+                     }
+
   guiIface ←
-    runGUI GUIContext { getPitchMapping    = getAppState evIface <&> pitchMap
-                      , appExitHandler     = void $ forkIO $ putMVar appExitBus ()
+    runGUI GUIContext { appExitHandler     = void $ forkIO $ putMVar appExitBus ()
                       , panicButtonHandler = void $ forkIO $ sendToEventHandler PanicEvent
                       , noteButtonHandler  = keyHandler
+                      , initialValues      = guiInitValues
                       }
 
   void $ forkIO $ catchThreadFail "Main module listener for key state updates" $ forever $

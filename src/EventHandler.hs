@@ -29,6 +29,7 @@ import Sound.MIDI.Message.Channel.Voice (normalVelocity)
 
 -- local
 import Utils
+import Types
 import Keys.Types
 import Keys.Specific.EventHandler
 import MIDIPlayer
@@ -38,6 +39,7 @@ data EventHandlerContext
   = EventHandlerContext
   { sendToMIDIPlayer ∷ MIDIPlayerSender
   , eventsListener   ∷ EventsListener
+  , onNewAppState    ∷ AppState → IO ()
   }
 
 data EventHandlerInterface
@@ -49,12 +51,14 @@ data EventHandlerInterface
 
 data AppState
   = AppState
-  { baseKey   ∷ RowKey
-  , basePitch ∷ Pitch
-  , channel   ∷ Channel
-  , velocity  ∷ Velocity
-  , pitchMap  ∷ HashMap RowKey Pitch
-  , storedEv  ∷ HashMap RowKey StoredEvent
+  { baseKey        ∷ RowKey
+  , basePitch      ∷ Pitch
+  , channel        ∷ Channel
+  , velocity       ∷ Velocity
+  , octave         ∷ Octave
+  , notesPerOctave ∷ NotesPerOctave
+  , pitchMap       ∷ HashMap RowKey Pitch
+  , storedEvents   ∷ HashMap RowKey StoredEvent
   } deriving (Show, Eq)
 
 data EventToHandle
@@ -85,12 +89,14 @@ data StoredEvent
 defaultAppState ∷ AppState
 defaultAppState =
 
-  AppState { baseKey   = baseKey'
-           , basePitch = basePitch'
-           , channel   = toChannel 0
-           , velocity  = normalVelocity
-           , pitchMap  = getPitchMapping baseKey' basePitch'
-           , storedEv  = empty
+  AppState { baseKey        = baseKey'
+           , basePitch      = basePitch'
+           , channel        = minBound
+           , velocity       = normalVelocity
+           , octave         = minBound
+           , notesPerOctave = NotesPerOctave 12
+           , pitchMap       = getPitchMapping baseKey' basePitch'
+           , storedEvents   = empty
            }
 
   where baseKey'   = AKey
@@ -119,17 +125,17 @@ runEventHandler ctx = do
                              stored = StoredNoteOn ch p vel
 
                          sendToMIDIPlayer ctx $ NoteOn ch p vel
-                         updateState $ \s → s { storedEv = insert k stored (storedEv s) }
+                         updateState $ \s → s { storedEvents = insert k stored (storedEvents s) }
 
              Nothing → pure ()
 
       handle (KeyRelease k) = readIORef appStateRef >>= \appState → eitherValue $ do
 
-        case lookup k $ storedEv appState of
+        case lookup k $ storedEvents appState of
 
              Just (StoredNoteOn ch p vel) → Left $ do
                sendToMIDIPlayer ctx $ NoteOff ch p vel
-               updateState $ \s → s { storedEv = k `delete` storedEv s }
+               updateState $ \s → s { storedEvents = k `delete` storedEvents s }
 
              Nothing → Right ()
 
@@ -144,7 +150,8 @@ runEventHandler ctx = do
 
       handle PanicEvent = sendToMIDIPlayer ctx Panic
 
-      updateState = modifyIORef' appStateRef ∘ updateStateMiddleware
+      updateState (updateStateMiddleware → (• dupe) → f) =
+        atomicModifyIORef' appStateRef f >>= onNewAppState ctx
 
   (interface <$) $ forkIO $ catchThreadFail "Event Handler" $ forever $
     let notifyListener = forkIO ∘ catchThreadFail "Events listener notifier" ∘ eventsListener ctx
