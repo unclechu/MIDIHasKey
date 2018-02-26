@@ -125,7 +125,7 @@ runEventHandler ctx = do
                              stored = StoredNoteOn ch p vel
 
                          sendToMIDIPlayer ctx $ NoteOn ch p vel
-                         updateState $ \s → s { storedEvents = insert k stored (storedEvents s) }
+                         updateState $ \s → s { storedEvents = insert k stored $ storedEvents s }
 
              Nothing → pure ()
 

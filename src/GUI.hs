@@ -22,7 +22,10 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent
 import Control.Concurrent.MVar
 
+import System.Glib.UTFString
 import Graphics.UI.Gtk
+import Graphics.UI.Gtk.General.CssProvider
+import Graphics.UI.Gtk.General.StyleContext
 import Sound.MIDI.Message.Channel
 
 -- local
@@ -57,8 +60,8 @@ data GUIInterface
 type KeyButtonStateUpdater = RowKey → Bool → IO ()
 
 
-mainAppWindow ∷ GUIContext → MVar (RowKey, Bool) → IO ()
-mainAppWindow ctx keyBtnStateBus = do
+mainAppWindow ∷ GUIContext → CssProvider → MVar (RowKey, Bool) → IO ()
+mainAppWindow ctx cssProvider keyBtnStateBus = do
   wnd ← windowNew
   on wnd objectDestroy mainQuit
 
@@ -91,6 +94,7 @@ mainAppWindow ctx keyBtnStateBus = do
   exitBtn ← buttonNew
   set exitBtn [buttonLabel := "Exit"]
   on exitBtn buttonActivated $ appExitHandler ctx
+  void $ withCssClass cssProvider "btn-danger" exitBtn
 
   panicBtn ← buttonNew
   set panicBtn [buttonLabel := "Panic"]
@@ -154,7 +158,8 @@ mainAppWindow ctx keyBtnStateBus = do
 myGUI ∷ GUIContext → MVar (RowKey, Bool) → IO ()
 myGUI ctx keyBtnStateBus = do
   initGUI
-  mainAppWindow ctx keyBtnStateBus
+  cssProvider ← getCssProvider
+  mainAppWindow ctx cssProvider keyBtnStateBus
   mainGUI
   appExitHandler ctx
 
@@ -163,3 +168,24 @@ runGUI ctx = do
   (keyBtnStateBus ∷ MVar (RowKey, Bool)) ← newEmptyMVar
   void $ forkIO $ catchThreadFail "Main GUI" $ myGUI ctx keyBtnStateBus
   pure GUIInterface { keyButtonStateUpdate = curry $ putMVar keyBtnStateBus }
+
+
+getCssProvider ∷ IO CssProvider
+getCssProvider = do
+  cssProvider ← cssProviderNew
+  cssProvider <$ cssProviderLoadFromPath cssProvider "./gtk-custom.css"
+
+-- Priority range is [1..800]. See also:
+-- https://www.stackage.org/haddock/lts-9.21/gtk3-0.14.8/src/Graphics.UI.Gtk.General.StyleContext.html#styleContextAddProvider
+maxCssPriority ∷ Int
+maxCssPriority = 800
+
+bindCssProvider ∷ WidgetClass widget ⇒ CssProvider → widget → IO StyleContext
+bindCssProvider cssProvider w = do
+  styleContext ← widgetGetStyleContext w
+  styleContext <$ styleContextAddProvider styleContext cssProvider maxCssPriority
+
+withCssClass ∷ (WidgetClass w, GlibString s) ⇒ CssProvider → s → w → IO StyleContext
+withCssClass cssProvider className w = do
+  styleContext ← bindCssProvider cssProvider w
+  styleContext <$ styleContextAddClass styleContext className

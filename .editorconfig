@@ -1,6 +1,6 @@
 root = true
 
-[*.{hs,cabal,yaml,md,sh,c++,h++}]
+[*.{hs,cabal,yaml,md,sh,c++,h++,css}]
 indent_style = space
 indent_size = 2
 end_of_line = lf
@@ -9,6 +9,9 @@ trim_trailing_whitespace = true
 
 [*.{hs,yaml,md,c++,h++}]
 max_line_length = 100
+
+[*.css]
+max_line_length = 80
 
 [*.md]
 trim_trailing_whitespace = false
