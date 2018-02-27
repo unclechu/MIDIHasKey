@@ -18,6 +18,7 @@ import Prelude.Unicode
 import GHC.TypeLits
 import Data.Proxy
 import Data.Word
+import qualified Data.Function ((&))
 
 import Control.Monad ((<$!>))
 import Control.Exception (SomeException, handle)
@@ -52,6 +53,11 @@ superscript = \case '1' → '¹' ; '2' → '²' ; '3' → '³' ; '4' → '⁴' ;
 (•) = flip (∘)
 {-# INLINE (•) #-}
 infixl 9 •
+
+(&) ∷ a → (a → b) → b
+(&) = (Data.Function.&)
+{-# INLINE (&) #-}
+infixl 1 &
 
 -- Left-to-right infix fmap
 -- Look at https://github.com/ekmett/lens/blob/d561c44098a1131dc26e545f6bfde58874bf6a6c/src/Control/Lens/Lens.hs#L357-L364

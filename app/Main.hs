@@ -4,7 +4,6 @@
 import Prelude.Unicode
 
 import Data.Proxy
-import Data.Function
 
 import Control.Monad
 import Control.Concurrent
