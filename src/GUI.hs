@@ -9,6 +9,7 @@ module GUI
      , GUIInterface (..)
      , KeyButtonStateUpdater
      , ChannelChange
+     -- , GUIStateUpdate (..)
      ) where
 
 import Prelude hiding (lookup)
@@ -44,7 +45,7 @@ data GUIContext
   , appExitHandler       ∷ IO ()
   , panicButtonHandler   ∷ IO ()
   , selectChannelHandler ∷ Channel → IO ()
-  , noteButtonHandler    ∷ RowKey → Bool → IO ()
+  , noteButtonHandler    ∷ RowKey → 𝔹 → IO ()
   }
 
 data GUIInitialValues
@@ -62,11 +63,15 @@ data GUIInterface
   , channelChange        ∷ ChannelChange
   }
 
-type KeyButtonStateUpdater = RowKey → Bool → IO ()
+-- data GUIStateUpdate
+--   = ChannelChange Channel
+--   deriving (Show, Eq)
+
+type KeyButtonStateUpdater = RowKey → 𝔹 → IO ()
 type ChannelChange         = Channel → IO ()
 
 
-mainAppWindow ∷ GUIContext → CssProvider → MVar (RowKey, Bool) → MVar Channel → IO ()
+mainAppWindow ∷ GUIContext → CssProvider → MVar (RowKey, 𝔹) → MVar Channel → IO ()
 mainAppWindow ctx cssProvider keyBtnStateBus channelChangeBus = do
   wnd ← windowNew
   on wnd objectDestroy mainQuit
@@ -164,7 +169,7 @@ mainAppWindow ctx cssProvider keyBtnStateBus channelChangeBus = do
     postGUIAsync $ void $ set channelBtn [buttonLabel := getChannelBtnLabel ch]
 
 
-myGUI ∷ GUIContext → MVar (RowKey, Bool) → MVar Channel → IO ()
+myGUI ∷ GUIContext → MVar (RowKey, 𝔹) → MVar Channel → IO ()
 myGUI ctx keyBtnStateBus channelChangeBus = do
   initGUI
   cssProvider ← getCssProvider
@@ -174,7 +179,7 @@ myGUI ctx keyBtnStateBus channelChangeBus = do
 
 runGUI ∷ GUIContext → IO GUIInterface
 runGUI ctx = do
-  (keyBtnStateBus   ∷ MVar (RowKey, Bool)) ← newEmptyMVar
+  (keyBtnStateBus   ∷ MVar (RowKey, 𝔹)) ← newEmptyMVar
   (channelChangeBus ∷ MVar Channel)        ← newEmptyMVar
 
   void $ forkIO $ catchThreadFail "Main GUI" $ myGUI ctx keyBtnStateBus channelChangeBus

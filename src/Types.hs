@@ -1,5 +1,6 @@
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Types where
 
@@ -7,6 +8,7 @@ import Prelude.Unicode
 import GHC.TypeLits
 
 import Data.Word
+import Text.InterpolatedString.QM
 
 -- local
 import Utils
@@ -22,13 +24,13 @@ instance Bounded NotesPerOctave where
   maxBound = NotesPerOctave 128
 
 instance Enum NotesPerOctave where
-  succ x@(NotesPerOctave y) | x >= maxBound = error "Cannot `succ` `minBound ∷ NotesPerOctave`"
+  succ x@(NotesPerOctave y) | x ≥ maxBound = error "Cannot `succ` `minBound ∷ NotesPerOctave`"
                             | otherwise = NotesPerOctave $ succ y
 
-  pred x@(NotesPerOctave y) | x <= minBound = error "Cannot `pred` `minBound ∷ NotesPerOctave`"
+  pred x@(NotesPerOctave y) | x ≤ minBound = error "Cannot `pred` `minBound ∷ NotesPerOctave`"
                             | otherwise = NotesPerOctave $ pred y
 
-  toEnum n | n < min || n > max = error $ "Cannot `toEnum` " ⧺ show n ⧺ " to `NotesPerOctave`"
+  toEnum n | n < min ∨ n > max = error [qm| Cannot `toEnum` {n} to `NotesPerOctave` |]
            | otherwise = NotesPerOctave $ toEnum n
 
     where min = fromIntegral $ fromNotesPerOctave minBound
@@ -38,8 +40,8 @@ instance Enum NotesPerOctave where
 
   enumFrom     x   = enumFromTo     x maxBound
   enumFromThen x y = enumFromThenTo x y bound
-    where bound | fromEnum y >= fromEnum x = maxBound
-                | otherwise                = minBound
+    where bound | fromEnum y ≥ fromEnum x = maxBound
+                | otherwise               = minBound
 
 
 newtype Octave = Octave { fromOctave ∷ Word8 } deriving (Eq, Show, Ord)
@@ -49,13 +51,13 @@ instance Bounded Octave where
   maxBound = Octave 16
 
 instance Enum Octave where
-  succ x@(Octave y) | x >= maxBound = error "Cannot `succ` `minBound ∷ Octave`"
+  succ x@(Octave y) | x ≥ maxBound = error "Cannot `succ` `minBound ∷ Octave`"
                     | otherwise = Octave $ succ y
 
-  pred x@(Octave y) | x <= minBound = error "Cannot `pred` `minBound ∷ Octave`"
+  pred x@(Octave y) | x ≤ minBound = error "Cannot `pred` `minBound ∷ Octave`"
                     | otherwise = Octave $ pred y
 
-  toEnum n | n < min || n > max = error $ "Cannot `toEnum` " ⧺ show n ⧺ " to `Octave`"
+  toEnum n | n < min ∨ n > max = error [qm| Cannot `toEnum` {n} to `Octave` |]
            | otherwise = Octave $ toEnum n
 
     where min = fromIntegral $ fromOctave minBound
@@ -65,5 +67,5 @@ instance Enum Octave where
 
   enumFrom     x   = enumFromTo     x maxBound
   enumFromThen x y = enumFromThenTo x y bound
-    where bound | fromEnum y >= fromEnum x = maxBound
-                | otherwise                = minBound
+    where bound | fromEnum y ≥ fromEnum x = maxBound
+                | otherwise               = minBound

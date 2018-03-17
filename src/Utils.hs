@@ -37,6 +37,8 @@ type family Len (a ∷ k) ∷ Nat where
   Len (x ↔ xs) = Len x + Len xs
   Len _ = 1
 
+type 𝔹 = Bool
+
 
 -- Key-type to MIDI key
 nat2MidiKey ∷ (KnownNat a) ⇒ Proxy a → Pitch

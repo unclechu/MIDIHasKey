@@ -25,12 +25,12 @@ import Keys.Specific.HandleKeyboard
 import EventHandler
 
 
-type DeviceReader = IO (RowKey, Bool)
+type DeviceReader = IO (RowKey, 𝔹)
 
 data HandleKeyboardContext
   = HandleKeyboardContext
   { devices                ∷ [FilePath]
-  , handleKeyboardKeyEvent ∷ RowKey → Bool → IO ()
+  , handleKeyboardKeyEvent ∷ RowKey → 𝔹 → IO ()
   }
 
 
