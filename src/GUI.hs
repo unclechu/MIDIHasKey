@@ -1,15 +1,14 @@
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE LambdaCase #-}
 
 module GUI
      ( runGUI
      , GUIContext (..)
      , GUIInitialValues (..)
      , GUIInterface (..)
-     , KeyButtonStateUpdater
-     , ChannelChange
-     -- , GUIStateUpdate (..)
+     , GUIStateUpdate (..)
      ) where
 
 import Prelude hiding (lookup)
@@ -59,20 +58,17 @@ data GUIInitialValues
 
 data GUIInterface
   = GUIInterface
-  { keyButtonStateUpdate ∷ KeyButtonStateUpdater
-  , channelChange        ∷ ChannelChange
+  { guiStateUpdate ∷ GUIStateUpdate → IO ()
   }
 
--- data GUIStateUpdate
---   = ChannelChange Channel
---   deriving (Show, Eq)
-
-type KeyButtonStateUpdater = RowKey → 𝔹 → IO ()
-type ChannelChange         = Channel → IO ()
+data GUIStateUpdate
+  = ChannelChange  Channel
+  | KeyButtonState RowKey 𝔹
+  deriving (Show, Eq)
 
 
-mainAppWindow ∷ GUIContext → CssProvider → MVar (RowKey, 𝔹) → MVar Channel → IO ()
-mainAppWindow ctx cssProvider keyBtnStateBus channelChangeBus = do
+mainAppWindow ∷ GUIContext → CssProvider → MVar GUIStateUpdate → IO ()
+mainAppWindow ctx cssProvider stateUpdateBus = do
   wnd ← windowNew
   on wnd objectDestroy mainQuit
 
@@ -158,35 +154,30 @@ mainAppWindow ctx cssProvider keyBtnStateBus channelChangeBus = do
   let buttonsMap ∷ HashMap RowKey Button
       buttonsMap = unions $ fromList <$> allButtonsRows
 
-  void $ forkIO $ catchThreadFail "GUI listener for key button state updates" $ forever $ do
-    (rowKey, isPressed) ← takeMVar keyBtnStateBus
+  void $ forkIO $ catchThreadFail "GUI listener for GUI state updates" $ forever $
+    takeMVar stateUpdateBus >>= \case
 
-    when isPressed $ fromMaybe (pure ()) $
-      rowKey `lookup` buttonsMap <&> postGUIAsync ∘ void ∘ widgetActivate
+      ChannelChange ch →
+        postGUIAsync $ void $ set channelBtn [buttonLabel := getChannelBtnLabel ch]
 
-  void $ forkIO $ catchThreadFail "GUI listener for channel change" $ forever $ do
-    ch ← takeMVar channelChangeBus
-    postGUIAsync $ void $ set channelBtn [buttonLabel := getChannelBtnLabel ch]
+      KeyButtonState rowKey isPressed →
+        when isPressed $ fromMaybe (pure ()) $
+          rowKey `lookup` buttonsMap <&> postGUIAsync ∘ void ∘ widgetActivate
 
 
-myGUI ∷ GUIContext → MVar (RowKey, 𝔹) → MVar Channel → IO ()
-myGUI ctx keyBtnStateBus channelChangeBus = do
+myGUI ∷ GUIContext → MVar GUIStateUpdate → IO ()
+myGUI ctx stateUpdateBus = do
   initGUI
   cssProvider ← getCssProvider
-  mainAppWindow ctx cssProvider keyBtnStateBus channelChangeBus
+  mainAppWindow ctx cssProvider stateUpdateBus
   mainGUI
   appExitHandler ctx
 
 runGUI ∷ GUIContext → IO GUIInterface
 runGUI ctx = do
-  (keyBtnStateBus   ∷ MVar (RowKey, 𝔹)) ← newEmptyMVar
-  (channelChangeBus ∷ MVar Channel)        ← newEmptyMVar
-
-  void $ forkIO $ catchThreadFail "Main GUI" $ myGUI ctx keyBtnStateBus channelChangeBus
-
-  pure GUIInterface { keyButtonStateUpdate = curry $ putMVar keyBtnStateBus
-                    , channelChange        = putMVar channelChangeBus
-                    }
+  (stateUpdateBus ∷ MVar GUIStateUpdate) ← newEmptyMVar
+  void $ forkIO $ catchThreadFail "Main GUI" $ myGUI ctx stateUpdateBus
+  pure GUIInterface { guiStateUpdate = putMVar stateUpdateBus }
 
 
 getCssProvider ∷ IO CssProvider

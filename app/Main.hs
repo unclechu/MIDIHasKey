@@ -26,15 +26,14 @@ import Keys.Types
 
 
 main = do
-  (appExitBus       ∷ MVar ())             ← newEmptyMVar
-  (channelChangeBus ∷ MVar Channel)        ← newEmptyMVar
-  (keyStateBus      ∷ MVar (RowKey, Bool)) ← newEmptyMVar
+  (appExitBus        ∷ MVar ())             ← newEmptyMVar
+  (guiStateUpdateBus ∷ MVar GUIStateUpdate) ← newEmptyMVar
 
   evIface ← runMIDIPlayer >>= \sendToMP →
 
-    let evListener (KeyPress   key) = putMVar keyStateBus (key, True)
-        evListener (KeyRelease key) = putMVar keyStateBus (key, False)
-        evListener (NewChannel ch)  = putMVar channelChangeBus ch
+    let evListener (KeyPress   key) = putMVar guiStateUpdateBus $ KeyButtonState key True
+        evListener (KeyRelease key) = putMVar guiStateUpdateBus $ KeyButtonState key False
+        evListener (NewChannel ch)  = putMVar guiStateUpdateBus $ ChannelChange ch
         evListener _                = pure ()
 
      in runEventHandler EventHandlerContext { sendToMIDIPlayer = sendToMP
@@ -69,11 +68,8 @@ main = do
                       , initialValues        = guiInitValues
                       }
 
-  void $ forkIO $ catchThreadFail "Main module listener for key state updates" $ forever $
-    takeMVar keyStateBus >>= uncurry (keyButtonStateUpdate guiIface)
-
-  void $ forkIO $ catchThreadFail "Main module listener for channel change" $ forever $
-    takeMVar channelChangeBus >>= channelChange guiIface
+  void $ forkIO $ catchThreadFail "Main module listener for GUI state updates" $ forever $
+    takeMVar guiStateUpdateBus >>= guiStateUpdate guiIface
 
   takeMVar appExitBus
   hPutStrLn stderr "Application is terminating…"
