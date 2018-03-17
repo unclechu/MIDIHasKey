@@ -26,13 +26,15 @@ import Keys.Types
 
 
 main = do
-  (appExitBus  ∷ MVar ())             ← newEmptyMVar
-  (keyStateBus ∷ MVar (RowKey, Bool)) ← newEmptyMVar
+  (appExitBus       ∷ MVar ())             ← newEmptyMVar
+  (channelChangeBus ∷ MVar Channel)        ← newEmptyMVar
+  (keyStateBus      ∷ MVar (RowKey, Bool)) ← newEmptyMVar
 
   evIface ← runMIDIPlayer >>= \sendToMP →
 
     let evListener (KeyPress   key) = putMVar keyStateBus (key, True)
         evListener (KeyRelease key) = putMVar keyStateBus (key, False)
+        evListener (NewChannel ch)  = putMVar channelChangeBus ch
         evListener _                = pure ()
 
      in runEventHandler EventHandlerContext { sendToMIDIPlayer = sendToMP
@@ -60,14 +62,18 @@ main = do
                      }
 
   guiIface ←
-    runGUI GUIContext { appExitHandler     = void $ forkIO $ putMVar appExitBus ()
-                      , panicButtonHandler = void $ forkIO $ sendToEventHandler PanicEvent
-                      , noteButtonHandler  = keyHandler
-                      , initialValues      = guiInitValues
+    runGUI GUIContext { appExitHandler       = void $ forkIO $ putMVar appExitBus ()
+                      , panicButtonHandler   = void $ forkIO $ sendToEventHandler PanicEvent
+                      , selectChannelHandler = void ∘ forkIO ∘ sendToEventHandler ∘ NewChannel
+                      , noteButtonHandler    = keyHandler
+                      , initialValues        = guiInitValues
                       }
 
   void $ forkIO $ catchThreadFail "Main module listener for key state updates" $ forever $
     takeMVar keyStateBus >>= uncurry (keyButtonStateUpdate guiIface)
+
+  void $ forkIO $ catchThreadFail "Main module listener for channel change" $ forever $
+    takeMVar channelChangeBus >>= channelChange guiIface
 
   takeMVar appExitBus
   hPutStrLn stderr "Application is terminating…"

@@ -1,5 +1,6 @@
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module GUI
      ( runGUI
@@ -7,6 +8,7 @@ module GUI
      , GUIInitialValues (..)
      , GUIInterface (..)
      , KeyButtonStateUpdater
+     , ChannelChange
      ) where
 
 import Prelude hiding (lookup)
@@ -16,6 +18,7 @@ import GHC.TypeLits
 import Data.Proxy
 import Data.Maybe
 import Data.HashMap.Strict
+import Text.InterpolatedString.QM
 
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
@@ -37,10 +40,11 @@ import Keys.Specific.GUI
 
 data GUIContext
   = GUIContext
-  { initialValues      ∷ GUIInitialValues
-  , appExitHandler     ∷ IO ()
-  , panicButtonHandler ∷ IO ()
-  , noteButtonHandler  ∷ RowKey → Bool → IO ()
+  { initialValues        ∷ GUIInitialValues
+  , appExitHandler       ∷ IO ()
+  , panicButtonHandler   ∷ IO ()
+  , selectChannelHandler ∷ Channel → IO ()
+  , noteButtonHandler    ∷ RowKey → Bool → IO ()
   }
 
 data GUIInitialValues
@@ -55,13 +59,15 @@ data GUIInitialValues
 data GUIInterface
   = GUIInterface
   { keyButtonStateUpdate ∷ KeyButtonStateUpdater
+  , channelChange        ∷ ChannelChange
   }
 
 type KeyButtonStateUpdater = RowKey → Bool → IO ()
+type ChannelChange         = Channel → IO ()
 
 
-mainAppWindow ∷ GUIContext → CssProvider → MVar (RowKey, Bool) → IO ()
-mainAppWindow ctx cssProvider keyBtnStateBus = do
+mainAppWindow ∷ GUIContext → CssProvider → MVar (RowKey, Bool) → MVar Channel → IO ()
+mainAppWindow ctx cssProvider keyBtnStateBus channelChangeBus = do
   wnd ← windowNew
   on wnd objectDestroy mainQuit
 
@@ -100,26 +106,25 @@ mainAppWindow ctx cssProvider keyBtnStateBus = do
   set panicBtn [buttonLabel := "Panic"]
   on panicBtn buttonActivated $ panicButtonHandler ctx
 
-  -- TODO FIXME
   menu ← menuNew
   set menu [menuTitle := "Select a MIDI channel"]
 
-  -- TODO FIXME
-  menuItem ← menuItemNew
-  set menuItem [menuItemLabel := "some item"]
-  on menuItem menuItemActivated $ putStrLn "some item is activated"
+  forM_ [(minBound :: Channel) .. maxBound] $ \ch → do
+    menuItem ← menuItemNew
+    set menuItem [menuItemLabel := show $ succ $ fromChannel ch]
+    on menuItem menuItemActivated $ selectChannelHandler ctx ch
+    menuShellAppend menu menuItem
 
-  -- TODO FIXME
-  menuShellAppend menu menuItem
+  widgetShowAll menu
 
-  -- TODO FIXME
   channelBtn ← buttonNew
-  set channelBtn [buttonLabel := "Channel: " ⧺ show (succ $ fromChannel currentChannel)]
+  let getChannelBtnLabel ch = [qm| Channel: {succ $ fromChannel ch} |] :: String
+  set channelBtn [buttonLabel := getChannelBtnLabel currentChannel]
   on channelBtn buttonActivated $ menuPopup menu Nothing
 
   topButtons ← hBoxNew False 5
   containerAdd topButtons panicBtn
-  -- containerAdd topButtons channelBtn -- TODO FIXME
+  containerAdd topButtons channelBtn
   containerAdd topButtons exitBtn
 
   keyRowsBox ← vBoxNew False 5
@@ -154,20 +159,29 @@ mainAppWindow ctx cssProvider keyBtnStateBus = do
     when isPressed $ fromMaybe (pure ()) $
       rowKey `lookup` buttonsMap <&> postGUIAsync ∘ void ∘ widgetActivate
 
+  void $ forkIO $ catchThreadFail "GUI listener for channel change" $ forever $ do
+    ch ← takeMVar channelChangeBus
+    postGUIAsync $ void $ set channelBtn [buttonLabel := getChannelBtnLabel ch]
 
-myGUI ∷ GUIContext → MVar (RowKey, Bool) → IO ()
-myGUI ctx keyBtnStateBus = do
+
+myGUI ∷ GUIContext → MVar (RowKey, Bool) → MVar Channel → IO ()
+myGUI ctx keyBtnStateBus channelChangeBus = do
   initGUI
   cssProvider ← getCssProvider
-  mainAppWindow ctx cssProvider keyBtnStateBus
+  mainAppWindow ctx cssProvider keyBtnStateBus channelChangeBus
   mainGUI
   appExitHandler ctx
 
 runGUI ∷ GUIContext → IO GUIInterface
 runGUI ctx = do
-  (keyBtnStateBus ∷ MVar (RowKey, Bool)) ← newEmptyMVar
-  void $ forkIO $ catchThreadFail "Main GUI" $ myGUI ctx keyBtnStateBus
-  pure GUIInterface { keyButtonStateUpdate = curry $ putMVar keyBtnStateBus }
+  (keyBtnStateBus   ∷ MVar (RowKey, Bool)) ← newEmptyMVar
+  (channelChangeBus ∷ MVar Channel)        ← newEmptyMVar
+
+  void $ forkIO $ catchThreadFail "Main GUI" $ myGUI ctx keyBtnStateBus channelChangeBus
+
+  pure GUIInterface { keyButtonStateUpdate = curry $ putMVar keyBtnStateBus
+                    , channelChange        = putMVar channelChangeBus
+                    }
 
 
 getCssProvider ∷ IO CssProvider

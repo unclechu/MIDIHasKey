@@ -27,6 +27,7 @@ dependencies:
   - linux-evdev
   - midi
   - process
+  - qm-interpolated-string
   - singletons
   - transformers
   - unordered-containers
