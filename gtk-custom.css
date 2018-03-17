@@ -1,4 +1,28 @@
-.btn-danger {
-  background: red;
-  color: white;
+.btn-octave-1, .btn-octave-2, .btn-octave-3, .btn-octave-4,
+.btn-octave-5, .btn-octave-6, .btn-octave-7, .btn-octave-8 {
+  color: black;
+  text-shadow: none;
 }
+
+.btn-octave-1:active, .btn-octave-2:active, .btn-octave-3:active,
+.btn-octave-4:active, .btn-octave-5:active, .btn-octave-6:active,
+.btn-octave-7:active, .btn-octave-8:active {
+  text-shadow: 1px 1px white;
+}
+
+.btn-octave-1        { background: rgb(120, 197, 214); }
+.btn-octave-1:active { background: rgba(120, 197, 214, .3); }
+.btn-octave-2        { background: rgb(69, 155, 168); }
+.btn-octave-2:active { background: rgba(69, 155, 168, .3); }
+.btn-octave-3        { background: rgb(121, 194, 103); }
+.btn-octave-3:active { background: rgba(121, 194, 103, .3); }
+.btn-octave-4        { background: rgb(197, 214, 71); }
+.btn-octave-4:active { background: rgba(197, 214, 71, .3); }
+.btn-octave-5        { background: rgb(245, 214, 61); }
+.btn-octave-5:active { background: rgba(245, 214, 61, .3); }
+.btn-octave-6        { background: rgb(242, 140, 51); }
+.btn-octave-6:active { background: rgba(242, 140, 51, .3); }
+.btn-octave-7        { background: rgb(232, 104, 162); }
+.btn-octave-7:active { background: rgba(232, 104, 162, .3); }
+.btn-octave-8        { background: rgb(191, 98, 166); }
+.btn-octave-8:active { background: rgba(191, 98, 166, .3); }

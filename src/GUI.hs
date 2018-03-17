@@ -49,7 +49,9 @@ data GUIContext
 
 data GUIInitialValues
   = GUIInitialValues
-  { initialPitchMapping   ∷ HashMap RowKey Pitch
+  { initialBaseKey        ∷ RowKey
+  , initialBasePitch      ∷ Pitch
+  , initialPitchMapping   ∷ HashMap RowKey Pitch
   , initialChannel        ∷ Channel
   , initialVelocity       ∷ Velocity
   , initialOctave         ∷ Octave
@@ -77,31 +79,55 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
           , windowModal := True
           ]
 
-  let pitchMapping = initialPitchMapping $ initialValues ctx
-      currentChannel = initialChannel $ initialValues ctx
+  let pitchMapping   = initialPitchMapping   $ initialValues ctx
+      currentChannel = initialChannel        $ initialValues ctx
+      notesPerOctave = initialNotesPerOctave $ initialValues ctx
 
   (allButtonsRows ∷ [[(RowKey, Button)]]) ←
-    let getButton ∷ GUIKeyOfRow → IO (RowKey, Button)
-        getButton (rowKey, label) = do btn ← buttonNew
-                                       set btn [buttonLabel := btnLabel]
-                                       on btn buttonPressEvent   $ tryEvent $ liftIO onPress
-                                       on btn buttonReleaseEvent $ tryEvent $ liftIO onRelease
-                                       pure (rowKey, btn)
+    let colorsCount = 8
+        perOctave   = fromIntegral $ fromNotesPerOctave notesPerOctave
 
-          where onPress   = noteButtonHandler ctx rowKey True
-                onRelease = noteButtonHandler ctx rowKey False
+        getButton ∷ GUIKeyOfRow → IO (RowKey, Button)
+        getButton (rowKey, label) = do
+          btn ← buttonNew
+          set btn [buttonLabel := btnLabel]
+          on btn buttonPressEvent   $ tryEvent $ liftIO onPress
+          on btn buttonReleaseEvent $ tryEvent $ liftIO onRelease
 
-                btnLabel = case lookup rowKey pitchMapping of
-                                -- +1 to shift from [0..127] to [1..128]
-                                Just x  → label ⧺ fmap superscript (show $ fromPitch x + 1)
-                                Nothing → label
+          case btnClass of
+               Just x  → void $ withCssClass cssProvider x btn
+               Nothing → pure ()
+
+          pure (rowKey, btn)
+
+          where
+            onPress    = noteButtonHandler ctx rowKey True
+            onRelease  = noteButtonHandler ctx rowKey False
+            basePitch  = fromPitch $ initialBasePitch $ initialValues ctx
+            foundPitch = lookup rowKey pitchMapping <&> fromPitch
+
+            btnLabel = case foundPitch of
+                            -- +1 to shift from [0..127] to [1..128]
+                            Just x  → label ⧺ fmap superscript (show $ succ x)
+                            Nothing → label
+
+            btnClass :: Maybe String
+            btnClass = do
+              x ← foundPitch <&> subtract basePitch <&> fromIntegral
+
+              pure $
+                if x ≥ 0
+                   then let n = floor $ x / perOctave
+                         in [qm| btn-octave-{succ $ n `mod` colorsCount} |]
+
+                   else let n = floor $ (negate x - 1) / perOctave
+                         in [qm| btn-octave-{succ $ pred colorsCount - (n `mod` colorsCount)} |]
 
      in forM allGUIRows $ mapM getButton
 
   exitBtn ← buttonNew
   set exitBtn [buttonLabel := "Exit"]
   on exitBtn buttonActivated $ appExitHandler ctx
-  void $ withCssClass cssProvider "btn-danger" exitBtn
 
   panicBtn ← buttonNew
   set panicBtn [buttonLabel := "Panic"]

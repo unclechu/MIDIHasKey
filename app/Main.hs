@@ -53,7 +53,9 @@ main = do
                                                              }
 
   guiInitValues ← getAppState evIface <&> \appState →
-    GUIInitialValues { initialPitchMapping   = pitchMap       appState
+    GUIInitialValues { initialBaseKey        = baseKey        appState
+                     , initialBasePitch      = basePitch      appState
+                     , initialPitchMapping   = pitchMap       appState
                      , initialChannel        = channel        appState
                      , initialVelocity       = velocity       appState
                      , initialOctave         = octave         appState
