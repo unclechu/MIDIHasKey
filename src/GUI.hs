@@ -187,10 +187,10 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
         postGUIAsync $ void $ set channelBtn [buttonLabel := getChannelBtnLabel ch]
 
       KeyButtonState rowKey isPressed →
-        fromMaybe (pure ()) $ rowKey `lookup` buttonsMap <&> \w → do
+        fromMaybe (pure ()) $ rowKey `lookup` buttonsMap <&> \w → postGUIAsync $ do
           styleContext ← widgetGetStyleContext w
-          postGUIAsync $ let f = if isPressed then styleContextAddClass else styleContextRemoveClass
-                          in f styleContext "active"
+          let f = if isPressed then styleContextAddClass else styleContextRemoveClass
+           in f styleContext "active"
 
 
 myGUI ∷ GUIContext → MVar GUIStateUpdate → IO ()
