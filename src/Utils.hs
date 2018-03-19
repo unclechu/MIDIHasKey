@@ -18,9 +18,10 @@ import Prelude.Unicode
 import GHC.TypeLits
 import Data.Proxy
 import Data.Word
+import Data.Maybe (maybe)
 import qualified Data.Function ((&))
 
-import Control.Monad ((<$!>))
+import Control.Monad ((<$!>), void)
 import Control.Exception (SomeException, handle)
 
 import Sound.MIDI.Message.Channel
@@ -85,3 +86,12 @@ catchThreadFail (("'" ⧺) → (⧺ "' thread is failed!") → failMsg) =
 dupe ∷ a → (a, a)
 dupe x = (x, x)
 {-# INLINE dupe #-}
+
+maybeMUnit ∷ Monad m ⇒ (a → m b) → Maybe a → m ()
+maybeMUnit f = maybe (pure ()) (void ∘ f)
+{-# INLINE maybeMUnit #-}
+
+-- With flipped arguments
+maybeMUnit' ∷ Monad m ⇒ Maybe a → (a → m b) → m ()
+maybeMUnit' x f = maybe (pure ()) (void ∘ f) x
+{-# INLINE maybeMUnit' #-}

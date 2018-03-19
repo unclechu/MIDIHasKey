@@ -31,10 +31,20 @@ main = do
 
   evIface ← runMIDIPlayer >>= \sendToMP →
 
-    let evListener (KeyPress   key) = putMVar guiStateUpdateBus $ KeyButtonState key True
-        evListener (KeyRelease key) = putMVar guiStateUpdateBus $ KeyButtonState key False
-        evListener (NewChannel ch)  = putMVar guiStateUpdateBus $ ChannelChange ch
-        evListener _                = pure ()
+    let evListener (KeyPress   key) _ = putMVar guiStateUpdateBus $ KeyButtonState key True
+        evListener (KeyRelease key) _ = putMVar guiStateUpdateBus $ KeyButtonState key False
+
+        evListener (NewBaseKey k) s = do
+          putMVar guiStateUpdateBus $ SetBaseKey k
+          putMVar guiStateUpdateBus $ SetPitchMapping $ pitchMap s
+
+        evListener (NewBasePitch p) s = do
+          putMVar guiStateUpdateBus $ SetBasePitch p
+          putMVar guiStateUpdateBus $ SetPitchMapping $ pitchMap s
+
+        evListener (NewChannel ch)  _ = putMVar guiStateUpdateBus $ SetChannel ch
+        evListener (NewVelocity v)  _ = putMVar guiStateUpdateBus $ SetVelocity v
+        evListener _                _ = pure ()
 
      in runEventHandler EventHandlerContext { sendToMIDIPlayer = sendToMP
                                             , eventsListener   = evListener
@@ -53,18 +63,20 @@ main = do
                                                              }
 
   guiInitValues ← getAppState evIface <&> \appState →
-    GUIInitialValues { initialBaseKey        = baseKey        appState
-                     , initialBasePitch      = basePitch      appState
-                     , initialPitchMapping   = pitchMap       appState
-                     , initialChannel        = channel        appState
-                     , initialVelocity       = velocity       appState
-                     , initialOctave         = octave         appState
-                     , initialNotesPerOctave = notesPerOctave appState
-                     }
+    GUIState { guiStateBaseKey        = baseKey        appState
+             , guiStateBasePitch      = basePitch      appState
+             , guiStatePitchMapping   = pitchMap       appState
+             , guiStateChannel        = channel        appState
+             , guiStateVelocity       = velocity       appState
+             , guiStateOctave         = octave         appState
+             , guiStateNotesPerOctave = notesPerOctave appState
+             }
 
   guiIface ←
     runGUI GUIContext { appExitHandler       = void $ forkIO $ putMVar appExitBus ()
                       , panicButtonHandler   = void $ forkIO $ sendToEventHandler PanicEvent
+                      , setBaseKeyHandler    = void ∘ forkIO ∘ sendToEventHandler ∘ NewBaseKey
+                      , setBasePitchHandler  = void ∘ forkIO ∘ sendToEventHandler ∘ NewBasePitch
                       , selectChannelHandler = void ∘ forkIO ∘ sendToEventHandler ∘ NewChannel
                       , noteButtonHandler    = keyHandler
                       , initialValues        = guiInitValues

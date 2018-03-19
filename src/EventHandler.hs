@@ -1,6 +1,7 @@
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE BangPatterns #-}
 
 -- A module that transforms some events such as key press/release to MIDI events.
 -- It also stores some application state such as current base note, current channel, etc., and
@@ -65,6 +66,7 @@ data EventToHandle
   = KeyPress   RowKey
   | KeyRelease RowKey
 
+  | NewBaseKey   RowKey
   | NewBasePitch Pitch
   | NewChannel   Channel
   | NewVelocity  Velocity
@@ -76,7 +78,7 @@ data EventToHandle
 
 type EventHandlerBus    = MVar EventToHandle
 type EventHandlerSender = EventToHandle → IO ()
-type EventsListener     = EventToHandle → IO ()
+type EventsListener     = EventToHandle → AppState → IO ()
 
 
 -- We need this to trigger correct note-off when channel/base-key/base-pitch/channel is changed
@@ -144,6 +146,7 @@ runEventHandler ctx = do
                Just x  → sendToMIDIPlayer ctx $ NoteOff (channel appState) x $ velocity appState
                Nothing → pure ()
 
+      handle (NewBaseKey k)   = updateState $ \s → s { baseKey   = k }
       handle (NewBasePitch p) = updateState $ \s → s { basePitch = p }
       handle (NewChannel c)   = updateState $ \s → s { channel   = c }
       handle (NewVelocity v)  = updateState $ \s → s { velocity  = v }
@@ -154,7 +157,10 @@ runEventHandler ctx = do
         atomicModifyIORef' appStateRef f >>= onNewAppState ctx
 
   (interface <$) $ forkIO $ catchThreadFail "Event Handler" $ forever $
-    let notifyListener = forkIO ∘ catchThreadFail "Events listener notifier" ∘ eventsListener ctx
+    let notifyListener ev = do
+          !s ← readIORef appStateRef
+          forkIO $ catchThreadFail "Events listener notifier" $ eventsListener ctx ev s
+
      in takeMVar bus >>= (handle &&& notifyListener) • uncurry (>>)
 
   where updateStateMiddleware ∷ (AppState → AppState) → AppState → AppState

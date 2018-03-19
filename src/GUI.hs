@@ -6,7 +6,7 @@
 module GUI
      ( runGUI
      , GUIContext (..)
-     , GUIInitialValues (..)
+     , GUIState (..)
      , GUIInterface (..)
      , GUIStateUpdate (..)
      ) where
@@ -14,7 +14,9 @@ module GUI
 import Prelude hiding (lookup)
 import Prelude.Unicode
 import GHC.TypeLits
+import Foreign.C.Types
 
+import Data.IORef
 import Data.Proxy
 import Data.Maybe
 import Data.HashMap.Strict
@@ -40,22 +42,24 @@ import Keys.Specific.GUI
 
 data GUIContext
   = GUIContext
-  { initialValues        ∷ GUIInitialValues
+  { initialValues        ∷ GUIState
   , appExitHandler       ∷ IO ()
   , panicButtonHandler   ∷ IO ()
+  , setBaseKeyHandler    ∷ RowKey → IO ()
+  , setBasePitchHandler  ∷ Pitch → IO ()
   , selectChannelHandler ∷ Channel → IO ()
   , noteButtonHandler    ∷ RowKey → 𝔹 → IO ()
   }
 
-data GUIInitialValues
-  = GUIInitialValues
-  { initialBaseKey        ∷ RowKey
-  , initialBasePitch      ∷ Pitch
-  , initialPitchMapping   ∷ HashMap RowKey Pitch
-  , initialChannel        ∷ Channel
-  , initialVelocity       ∷ Velocity
-  , initialOctave         ∷ Octave
-  , initialNotesPerOctave ∷ NotesPerOctave
+data GUIState
+  = GUIState
+  { guiStateBaseKey        ∷ RowKey
+  , guiStateBasePitch      ∷ Pitch
+  , guiStatePitchMapping   ∷ HashMap RowKey Pitch
+  , guiStateChannel        ∷ Channel
+  , guiStateVelocity       ∷ Velocity
+  , guiStateOctave         ∷ Octave
+  , guiStateNotesPerOctave ∷ NotesPerOctave
   }
 
 data GUIInterface
@@ -64,130 +68,264 @@ data GUIInterface
   }
 
 data GUIStateUpdate
-  = ChannelChange  Channel
-  | KeyButtonState RowKey 𝔹
+  = SetBaseKey        RowKey
+  | SetBasePitch      Pitch
+  | SetPitchMapping   (HashMap RowKey Pitch)
+  | SetChannel        Channel
+  | SetVelocity       Velocity
+  | SetOctave         Octave
+  | SetNotesPerOctave NotesPerOctave
+  | KeyButtonState    RowKey 𝔹
   deriving (Show, Eq)
 
 
 mainAppWindow ∷ GUIContext → CssProvider → MVar GUIStateUpdate → IO ()
 mainAppWindow ctx cssProvider stateUpdateBus = do
-  wnd ← windowNew
-  on wnd objectDestroy mainQuit
+  guiStateRef ← newIORef $ initialValues ctx
 
-  set wnd [ containerBorderWidth := 8
-          , windowTitle := symbolVal (Proxy ∷ Proxy WindowTitle)
-          , windowModal := True
-          ]
+  wnd ← do
+    wnd ← windowNew
+    on wnd objectDestroy mainQuit
 
-  let pitchMapping   = initialPitchMapping   $ initialValues ctx
-      currentChannel = initialChannel        $ initialValues ctx
-      notesPerOctave = initialNotesPerOctave $ initialValues ctx
+    set wnd [ containerBorderWidth := 8
+            , windowTitle := symbolVal (Proxy ∷ Proxy WindowTitle)
+            , windowModal := True
+            ]
 
-  (allButtonsRows ∷ [[(RowKey, Button)]]) ←
-    let colorsCount = 8
-        perOctave   = fromIntegral $ fromNotesPerOctave notesPerOctave
+    pure wnd
 
-        getButton ∷ GUIKeyOfRow → IO (RowKey, Button)
-        getButton (rowKey, label) = do
+  let allGUIKeys  = mconcat allGUIRows
+      keyLabelMap = fromList allGUIKeys
+      colorsCount = 8
+
+      getButtonLabelAndClass
+        ∷ Pitch → HashMap RowKey Pitch → NotesPerOctave → RowKey → String → (String, Maybe String)
+
+      getButtonLabelAndClass basePitch pitchMapping perOctave rowKey keyLabel = (label, className)
+        where
+          foundPitch = lookup rowKey pitchMapping <&> fromPitch
+
+          label = case foundPitch of
+                       -- +1 to shift from [0..127] to [1..128]
+                       Just x  → [qm| <b>{keyLabel}</b> <i><small>{succ x}</small></i> |]
+                       Nothing → [qm| <b>{keyLabel}</b> |] ∷ String
+
+          className ∷ Maybe String
+          className = do
+            x ← foundPitch <&> subtract (fromPitch basePitch) <&> fromIntegral
+
+            pure $
+              if x ≥ 0
+                 then let n = floor $ x / fromIntegral (fromNotesPerOctave perOctave)
+                       in [qm| btn-octave-{succ $ n `mod` colorsCount} |]
+
+                 else let n = floor $ (negate x - 1) / fromIntegral (fromNotesPerOctave perOctave)
+                       in [qm| btn-octave-{succ $ pred colorsCount - (n `mod` colorsCount)} |]
+
+  (allButtonsRows, allButtons) ← do
+    let getButton ∷ GUIKeyOfRow → IO (RowKey, (Button, String → IO ()))
+        getButton (rowKey, keyLabel) = do
+          label ← labelNew (Nothing ∷ Maybe String)
+          labelSetMarkup label btnLabel
+
           btn ← buttonNew
-          set btn [buttonLabel := btnLabel]
+          containerAdd btn label
           on btn buttonPressEvent   $ tryEvent $ liftIO onPress
           on btn buttonReleaseEvent $ tryEvent $ liftIO onRelease
+          btnClass `maybeMUnit'` \className → withCssClass cssProvider className btn
 
-          case btnClass of
-               Just x  → void $ withCssClass cssProvider x btn
-               Nothing → pure ()
-
-          pure (rowKey, btn)
+          pure (rowKey, (btn, labelSetMarkup label ∷ String → IO ()))
 
           where
-            onPress    = noteButtonHandler ctx rowKey True
-            onRelease  = noteButtonHandler ctx rowKey False
-            basePitch  = fromPitch $ initialBasePitch $ initialValues ctx
-            foundPitch = lookup rowKey pitchMapping <&> fromPitch
+            onPress   = noteButtonHandler ctx rowKey True
+            onRelease = noteButtonHandler ctx rowKey False
 
-            btnLabel = case foundPitch of
-                            -- +1 to shift from [0..127] to [1..128]
-                            Just x  → label ⧺ fmap superscript (show $ succ x)
-                            Nothing → label
+            (btnLabel, btnClass) =
+              let v = initialValues ctx in
+              getButtonLabelAndClass (guiStateBasePitch v)
+                                     (guiStatePitchMapping v)
+                                     (guiStateNotesPerOctave v)
+                                     rowKey keyLabel
 
-            btnClass :: Maybe String
-            btnClass = do
-              x ← foundPitch <&> subtract basePitch <&> fromIntegral
+    (rows ∷ [[(RowKey, (Button, String → IO ()))]]) ← forM allGUIRows $ mapM getButton
+    pure (rows, mconcat rows)
 
-              pure $
-                if x ≥ 0
-                   then let n = floor $ x / perOctave
-                         in [qm| btn-octave-{succ $ n `mod` colorsCount} |]
+  exitEl ← do
+    btn ← buttonNew
+    set btn [buttonLabel := "Exit"]
+    on btn buttonActivated $ appExitHandler ctx
+    pure btn
 
-                   else let n = floor $ (negate x - 1) / perOctave
-                         in [qm| btn-octave-{succ $ pred colorsCount - (n `mod` colorsCount)} |]
+  panicEl ← do
+    btn ← buttonNew
+    set btn [buttonLabel := "Panic"]
+    on btn buttonActivated $ panicButtonHandler ctx
+    pure btn
 
-     in forM allGUIRows $ mapM getButton
+  (channelEl, channelUpdater) ← do
+    menu ← do
+      menu ← menuNew
+      set menu [menuTitle := "Select MIDI channel"]
 
-  exitBtn ← buttonNew
-  set exitBtn [buttonLabel := "Exit"]
-  on exitBtn buttonActivated $ appExitHandler ctx
+      forM_ [(minBound :: Channel) .. maxBound] $ \ch → do
+        menuItem ← menuItemNew
+        set menuItem [menuItemLabel := show $ succ $ fromChannel ch]
+        on menuItem menuItemActivated $ selectChannelHandler ctx ch
+        menuShellAppend menu menuItem
 
-  panicBtn ← buttonNew
-  set panicBtn [buttonLabel := "Panic"]
-  on panicBtn buttonActivated $ panicButtonHandler ctx
+      menu <$ widgetShowAll menu
 
-  menu ← menuNew
-  set menu [menuTitle := "Select a MIDI channel"]
+    label ← labelNew (Nothing ∷ Maybe String)
+    let getLabel ch = [qm| Channel: <b>{succ $ fromChannel ch}</b> |] :: String
+    labelSetMarkup label $ getLabel $ guiStateChannel $ initialValues ctx
 
-  forM_ [(minBound :: Channel) .. maxBound] $ \ch → do
-    menuItem ← menuItemNew
-    set menuItem [menuItemLabel := show $ succ $ fromChannel ch]
-    on menuItem menuItemActivated $ selectChannelHandler ctx ch
-    menuShellAppend menu menuItem
+    btn ← buttonNew
+    containerAdd btn label
+    on btn buttonActivated $ menuPopup menu Nothing
+    pure (btn, getLabel • labelSetMarkup label)
 
-  widgetShowAll menu
+  (baseKeyEl, baseKeyUpdater) ← do
+    menu ← do
+      menu ← menuNew
+      set menu [menuTitle := "Select base key"]
 
-  channelBtn ← buttonNew
-  let getChannelBtnLabel ch = [qm| Channel: {succ $ fromChannel ch} |] :: String
-  set channelBtn [buttonLabel := getChannelBtnLabel currentChannel]
-  on channelBtn buttonActivated $ menuPopup menu Nothing
+      forM_ allGUIKeys $ \(rowKey, keyLabel) → do
+        menuItem ← menuItemNew
+        set menuItem [menuItemLabel := keyLabel]
+        on menuItem menuItemActivated $ setBaseKeyHandler ctx rowKey
+        menuShellAppend menu menuItem
 
-  topButtons ← hBoxNew False 5
-  containerAdd topButtons panicBtn
-  containerAdd topButtons channelBtn
-  containerAdd topButtons exitBtn
+      menu <$ widgetShowAll menu
 
-  keyRowsBox ← vBoxNew False 5
+    label ← labelNew (Nothing ∷ Maybe String)
+    let getLabel rowKey = [qm| Base key: <b>{keyLabelMap ! rowKey}</b> |] :: String
+    labelSetMarkup label $ getLabel $ guiStateBaseKey $ initialValues ctx
 
-  set keyRowsBox [ widgetMarginLeft   := 8
-                 , widgetMarginRight  := 8
-                 , widgetMarginTop    := 5
-                 , widgetMarginBottom := 8
-                 ]
+    btn ← buttonNew
+    containerAdd btn label
+    on btn buttonActivated $ menuPopup menu Nothing
+    pure (btn, getLabel • labelSetMarkup label)
 
-  mapM_ (containerAdd keyRowsBox) =<<
-    forM (fmap snd <$> reverse allButtonsRows)
-         (\keysButtons → do c ← hBoxNew False 5 ; c <$ mapM_ (containerAdd c) keysButtons)
+  (basePitchEl, basePitchUpdater) ← do
+    let val = fromIntegral $ succ $ fromPitch $ guiStateBasePitch $ initialValues ctx
+        minPitch = succ $ fromIntegral $ fromPitch minBound
+        maxPitch = succ $ fromIntegral $ fromPitch maxBound
 
-  keyboardFrame ← frameNew
-  set keyboardFrame [frameLabel := "Keyboard"]
-  containerAdd keyboardFrame keyRowsBox
+    btn ← spinButtonNewWithRange minPitch maxPitch 1
+    set btn [spinButtonValue := val]
 
-  mainBox ← vBoxNew False 5
-  containerAdd mainBox topButtons
-  containerAdd mainBox keyboardFrame
+    label ← labelNew $ Just "Base pitch:"
+
+    box ← vBoxNew False 5
+    containerAdd box label
+    containerAdd box btn
+
+    connectGeneric "value-changed" True btn $ \_ → do
+      x ← spinButtonGetValueAsInt btn
+      setBasePitchHandler ctx $ toPitch $ pred x
+      pure (0 ∷ CInt)
+
+    pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ succ ∘ fromPitch)
+
+  topButtons ← do
+    box ← hBoxNew False 5
+    containerAdd box panicEl
+    containerAdd box channelEl
+    containerAdd box baseKeyEl
+    containerAdd box basePitchEl
+    containerAdd box exitEl
+    pure box
+
+  keyRowsBox ← do
+    box ← vBoxNew False 5
+
+    set box [ widgetMarginLeft   := 8
+            , widgetMarginRight  := 8
+            , widgetMarginTop    := 5
+            , widgetMarginBottom := 8
+            ]
+
+    mapM_ (containerAdd box) =<<
+      forM (fmap (snd • fst) <$> reverse allButtonsRows)
+           (\keysButtons → do c ← hBoxNew False 5 ; c <$ mapM_ (containerAdd c) keysButtons)
+
+    pure box
+
+  keyboardFrame ← do
+    frame ← frameNew
+    set frame [frameLabel := "Keyboard"]
+    containerAdd frame keyRowsBox
+    pure frame
+
+  mainBox ← do
+    box ← vBoxNew False 5
+    containerAdd box topButtons
+    containerAdd box keyboardFrame
+    pure box
 
   containerAdd wnd mainBox
   widgetShowAll wnd
 
-  let buttonsMap ∷ HashMap RowKey Button
-      buttonsMap = unions $ fromList <$> allButtonsRows
+  let buttonsMap ∷ HashMap RowKey (Button, String → IO ())
+      buttonsMap = fromList allButtons
+
+      updateButton
+        ∷ Pitch → HashMap RowKey Pitch → NotesPerOctave
+        → (RowKey, (Button, String → IO ())) → IO ()
+
+      updateButton basePitch pitchMapping perOctave (rowKey, (btn, labelUpdater)) = do
+        let keyLabel = keyLabelMap ! rowKey
+
+            (btnLabel, className) =
+              getButtonLabelAndClass basePitch pitchMapping perOctave rowKey keyLabel
+
+        styleContext ← widgetGetStyleContext btn
+        forM_ colors $ removeColorClass styleContext
+        styleContextAddClass styleContext `maybeMUnit` className
+        labelUpdater btnLabel
+
+        where
+          colors = [1..colorsCount]
+          removeColorClass c n = styleContextRemoveClass c ([qm| btn-octave-{n} |] ∷ String)
+
+      updateButtons ∷ IO ()
+      updateButtons = do
+        s ← readIORef guiStateRef
+
+        forM_ allButtons $
+          updateButton (guiStateBasePitch s) (guiStatePitchMapping s) (guiStateNotesPerOctave s)
 
   void $ forkIO $ catchThreadFail "GUI listener for GUI state updates" $ forever $
     takeMVar stateUpdateBus >>= \case
+      SetBaseKey k → do
+        modifyIORef guiStateRef $ \s → s { guiStateBaseKey = k }
+        postGUIAsync $ baseKeyUpdater k >> updateButtons
 
-      ChannelChange ch →
-        postGUIAsync $ void $ set channelBtn [buttonLabel := getChannelBtnLabel ch]
+      SetBasePitch p → do
+        modifyIORef guiStateRef $ \s → s { guiStateBasePitch = p }
+        postGUIAsync $ basePitchUpdater p >> updateButtons
+
+      SetPitchMapping mapping → do
+        modifyIORef guiStateRef $ \s → s { guiStatePitchMapping = mapping }
+        postGUIAsync updateButtons
+
+      SetChannel ch → do
+        modifyIORef guiStateRef $ \s → s { guiStateChannel = ch }
+        postGUIAsync $ channelUpdater ch
+
+      SetVelocity vel →
+        modifyIORef guiStateRef $ \s → s { guiStateVelocity = vel }
+
+      SetOctave octave → do
+        modifyIORef guiStateRef $ \s → s { guiStateOctave = octave }
+        postGUIAsync updateButtons
+
+      SetNotesPerOctave perOctave → do
+        modifyIORef guiStateRef $ \s → s { guiStateNotesPerOctave = perOctave }
+        postGUIAsync updateButtons
 
       KeyButtonState rowKey isPressed →
-        fromMaybe (pure ()) $ rowKey `lookup` buttonsMap <&> \w → postGUIAsync $ do
+        fromMaybe (pure ()) $ rowKey `lookup` buttonsMap <&> \(w, _) → postGUIAsync $ do
           styleContext ← widgetGetStyleContext w
           let f = if isPressed then styleContextAddClass else styleContextRemoveClass
            in f styleContext "active"
