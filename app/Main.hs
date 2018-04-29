@@ -42,6 +42,10 @@ main = do
           putMVar guiStateUpdateBus $ SetBasePitch p
           putMVar guiStateUpdateBus $ SetPitchMapping $ pitchMap s
 
+        evListener (NewOctave o) s = do
+          putMVar guiStateUpdateBus $ SetOctave o
+          putMVar guiStateUpdateBus $ SetPitchMapping $ pitchMap s
+
         evListener (NewChannel ch)  _ = putMVar guiStateUpdateBus $ SetChannel ch
         evListener (NewVelocity v)  _ = putMVar guiStateUpdateBus $ SetVelocity v
         evListener _                _ = pure ()
@@ -78,6 +82,7 @@ main = do
                       , setBaseKeyHandler    = void ∘ forkIO ∘ sendToEventHandler ∘ NewBaseKey
                       , setBasePitchHandler  = void ∘ forkIO ∘ sendToEventHandler ∘ NewBasePitch
                       , selectChannelHandler = void ∘ forkIO ∘ sendToEventHandler ∘ NewChannel
+                      , setOctaveHandler     = void ∘ forkIO ∘ sendToEventHandler ∘ NewOctave
                       , noteButtonHandler    = keyHandler
                       , initialValues        = guiInitValues
                       }

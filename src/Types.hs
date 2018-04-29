@@ -69,3 +69,6 @@ instance Enum Octave where
   enumFromThen x y = enumFromThenTo x y bound
     where bound | fromEnum y ≥ fromEnum x = maxBound
                 | otherwise               = minBound
+
+-- To avoid human-factor errors
+newtype BaseOctave = BaseOctave { fromBaseOctave ∷ Octave } deriving (Eq, Show, Ord)

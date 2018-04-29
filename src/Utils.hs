@@ -64,13 +64,13 @@ infixl 1 &
 
 -- Left-to-right infix fmap
 -- Look at https://github.com/ekmett/lens/blob/d561c44098a1131dc26e545f6bfde58874bf6a6c/src/Control/Lens/Lens.hs#L357-L364
-(<&>) :: Functor f ⇒ f a → (a → b) → f b
+(<&>) ∷ Functor f ⇒ f a → (a → b) → f b
 (<&>) = flip (<$>)
 {-# INLINE (<&>) #-}
 infixr 5 <&>
 
 -- Left-to-right infix strict fmap
-(<&!>) :: Monad m ⇒ m a → (a → b) → m b
+(<&!>) ∷ Monad m ⇒ m a → (a → b) → m b
 (<&!>) = flip (<$!>)
 {-# INLINE (<&!>) #-}
 infixr 5 <&!>

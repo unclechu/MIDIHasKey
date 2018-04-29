@@ -18,7 +18,7 @@ import Prelude hiding (lookup)
 import Prelude.Unicode
 
 import Data.IORef
-import Data.HashMap.Strict
+import Data.HashMap.Strict hiding (filter)
 
 import Control.Monad
 import Control.Arrow
@@ -52,24 +52,38 @@ data EventHandlerInterface
 
 data AppState
   = AppState
-  { baseKey        ∷ RowKey
-  , basePitch      ∷ Pitch
-  , channel        ∷ Channel
-  , velocity       ∷ Velocity
-  , octave         ∷ Octave
-  , notesPerOctave ∷ NotesPerOctave
-  , pitchMap       ∷ HashMap RowKey Pitch
-  , storedEvents   ∷ HashMap RowKey StoredEvent
+  { baseKey        ∷ RowKey   -- A key of the keyboard which would be a set point
+  , basePitch      ∷ Pitch    -- A pitch that will be associated with `baseKey`
+  , channel        ∷ Channel  -- MIDI channel
+  , velocity       ∷ Velocity -- MIDI velocity for the tiggered notes
+  , octave         ∷ Octave   -- Current octave, it's not supposed to mean a real octave
+                              -- but a shift from `basePitch` by `notesPerOctave`
+                              -- relatively to the `baseOctave`.
+  , baseOctave     ∷ BaseOctave -- `octave` value that would be `basePitch` on `baseKey`
+                                -- that means when `octave` equals `baseOctave` `basePitch`
+                                -- wouldn't be shifted at all.
+  , notesPerOctave ∷ NotesPerOctave -- Indicates how many notes will be shifted by one `octave`,
+                                    -- it does't mean anything but this shift step.
+  , pitchMap       ∷ HashMap RowKey Pitch -- Current mapping of pitches by keys,
+                                          -- it changes when you shift `octave`, `basePitch`, etc.
+  , storedEvents   ∷ HashMap RowKey StoredEvent -- Mapping of currently triggered events such as
+                                                -- note-on to trigger proper note-off in case
+                                                -- something was shifted (`octave`, `basePitch`,
+                                                -- `channel`, etc.) while some note isn't
+                                                -- released yet.
   } deriving (Show, Eq)
 
 data EventToHandle
   = KeyPress   RowKey
   | KeyRelease RowKey
 
-  | NewBaseKey   RowKey
-  | NewBasePitch Pitch
-  | NewChannel   Channel
-  | NewVelocity  Velocity
+  | NewBaseKey        RowKey
+  | NewBasePitch      Pitch
+  | NewChannel        Channel
+  | NewVelocity       Velocity
+  | NewOctave         Octave
+  | NewBaseOctave     BaseOctave
+  | NewNotesPerOctave NotesPerOctave
 
   | PanicEvent
 
@@ -95,21 +109,26 @@ defaultAppState =
            , basePitch      = basePitch'
            , channel        = minBound
            , velocity       = normalVelocity
-           , octave         = minBound
-           , notesPerOctave = NotesPerOctave 12
+           , octave         = octave'
+           , baseOctave     = baseOctave'
+           , notesPerOctave = notesPerOctave'
            , pitchMap       = getPitchMapping baseKey' basePitch'
+                                              octave' baseOctave'
+                                              notesPerOctave'
            , storedEvents   = empty
            }
 
-  where baseKey'   = AKey
-        basePitch' = toPitch 19 -- 20th in [1..128]
+  where baseKey'        = AKey
+        basePitch'      = toPitch 19 -- 20th in [1..128]
+        octave'         = fromBaseOctave baseOctave'
+        baseOctave'     = BaseOctave $ Octave 4
+        notesPerOctave' = NotesPerOctave 12
 
 
 runEventHandler ∷ EventHandlerContext → IO EventHandlerInterface
 runEventHandler ctx = do
-  (bus ∷ EventHandlerBus) ← newEmptyMVar
-
-  (appStateRef ∷ IORef AppState) ← newIORef defaultAppState
+  (bus         ∷ EventHandlerBus) ← newEmptyMVar
+  (appStateRef ∷ IORef AppState)  ← newIORef defaultAppState
 
   let interface
         = EventHandlerInterface
@@ -146,52 +165,85 @@ runEventHandler ctx = do
                Just x  → sendToMIDIPlayer ctx $ NoteOff (channel appState) x $ velocity appState
                Nothing → pure ()
 
-      handle (NewBaseKey k)   = updateState $ \s → s { baseKey   = k }
-      handle (NewBasePitch p) = updateState $ \s → s { basePitch = p }
-      handle (NewChannel c)   = updateState $ \s → s { channel   = c }
-      handle (NewVelocity v)  = updateState $ \s → s { velocity  = v }
+      handle (NewBaseKey k)        = updateState $ \s → s { baseKey        = k }
+      handle (NewBasePitch p)      = updateState $ \s → s { basePitch      = p }
+      handle (NewChannel c)        = updateState $ \s → s { channel        = c }
+      handle (NewVelocity v)       = updateState $ \s → s { velocity       = v }
+      handle (NewOctave o)         = updateState $ \s → s { octave         = o }
+      handle (NewBaseOctave o)     = updateState $ \s → s { baseOctave     = o }
+      handle (NewNotesPerOctave n) = updateState $ \s → s { notesPerOctave = n }
 
       handle PanicEvent = sendToMIDIPlayer ctx Panic
 
       updateState (updateStateMiddleware → (• dupe) → f) =
         atomicModifyIORef' appStateRef f >>= onNewAppState ctx
 
-  (interface <$) $ forkIO $ catchThreadFail "Event Handler" $ forever $
+  (interface <$) $ forkIO $ catchThreadFail "Event Handler" $ forever $ do
     let notifyListener ev = do
           !s ← readIORef appStateRef
           forkIO $ catchThreadFail "Events listener notifier" $ eventsListener ctx ev s
 
-     in takeMVar bus >>= (handle &&& notifyListener) • uncurry (>>)
+    takeMVar bus >>= (handle &&& notifyListener) • uncurry (>>)
 
   where updateStateMiddleware ∷ (AppState → AppState) → AppState → AppState
         updateStateMiddleware f oldState =
 
-          if baseKey   newState /= baseKey   oldState
-          || basePitch newState /= basePitch oldState
-             then newState { pitchMap = getPitchMapping baseKey' basePitch' }
+          if baseKey        newState /= baseKey        oldState
+          || basePitch      newState /= basePitch      oldState
+          || octave         newState /= octave         oldState
+          || baseOctave     newState /= baseOctave     oldState
+          || notesPerOctave newState /= notesPerOctave oldState
+             then newState { pitchMap = getPitchMapping baseKey' basePitch'
+                                                        octave' baseOctave'
+                                                        notesPerOctave' }
              else newState
 
-          where newState   = f oldState
-                baseKey'   = baseKey newState
-                basePitch' = basePitch newState
+          where newState        = f oldState
+                baseKey'        = baseKey        newState
+                basePitch'      = basePitch      newState
+                octave'         = octave         newState
+                baseOctave'     = baseOctave     newState
+                notesPerOctave' = notesPerOctave newState
 
 
-getPitchMapping ∷ RowKey → Pitch → HashMap RowKey Pitch
-getPitchMapping baseKey basePitch = fromList (zip l lp) `union` fromList (zip r rp)
+getPitchMapping ∷ RowKey → Pitch → Octave → BaseOctave → NotesPerOctave → HashMap RowKey Pitch
+getPitchMapping baseKey' basePitch' octave' baseOctave' notesPerOctave' =
+  fromList (zip l lp) `union` fromList (zip r rp)
+  where (reverse → l, r) = span (/= baseKey') allKeysOrder
 
-  where (reverse → l, r) = span (/= baseKey) allKeysOrder
+        basePitchZ, octaveZ, baseOctaveZ, notesPerOctaveZ, minPitchZ, maxPitchZ ∷ ℤ
+
+        basePitchZ      = toInteger $ fromPitch basePitch'
+        octaveZ         = toInteger $ fromOctave octave'
+        baseOctaveZ     = toInteger $ fromOctave $ fromBaseOctave baseOctave'
+        notesPerOctaveZ = toInteger $ fromNotesPerOctave $ notesPerOctave'
+
+        minPitchZ       = toInteger $ fromPitch minBound
+        maxPitchZ       = toInteger $ fromPitch maxBound
+
+        octaveShiftZ, shiftedPitchZ ∷ ℤ
+
+        octaveShiftZ    = (baseOctaveZ - octaveZ) * notesPerOctaveZ
+        shiftedPitchZ   = basePitchZ - octaveShiftZ
+
+        isPitchInBound ∷ ℤ → 𝔹
+        isPitchInBound x = x ≥ minPitchZ ∧ x ≤ maxPitchZ
 
         lp, rp ∷ [Pitch]
 
-        lp = eitherValue $ do
-          if basePitch > minBound then Right () else Left []
-          let prev = pred basePitch
-          if prev > minBound then Right [prev, pred prev .. minBound] else Left [prev]
+        lp = fmap (toPitch ∘ fromInteger) $ filter isPitchInBound $ eitherValue $ do
+          if shiftedPitchZ > minPitchZ then Right () else Left []
+          let prev = pred shiftedPitchZ
+          if prev > minPitchZ
+             then Right [prev, pred prev .. minPitchZ]
+             else Left [prev]
 
-        rp = eitherValue $ do
-          if maxBound > basePitch then Right () else Left [basePitch]
-          let next = succ basePitch
-          if maxBound > next then Right [basePitch .. maxBound] else Left [basePitch, next]
+        rp = fmap (toPitch ∘ fromInteger) $ filter isPitchInBound $ eitherValue $ do
+          if maxPitchZ > shiftedPitchZ then Right () else Left [shiftedPitchZ]
+          let next = succ shiftedPitchZ
+          if maxPitchZ > next
+             then Right [shiftedPitchZ .. maxPitchZ]
+             else Left [shiftedPitchZ, next]
 
 
 -- For extracting value from breakable monads

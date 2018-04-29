@@ -47,6 +47,7 @@ data GUIContext
   , panicButtonHandler   ∷ IO ()
   , setBaseKeyHandler    ∷ RowKey → IO ()
   , setBasePitchHandler  ∷ Pitch → IO ()
+  , setOctaveHandler     ∷ Octave → IO ()
   , selectChannelHandler ∷ Channel → IO ()
   , noteButtonHandler    ∷ RowKey → 𝔹 → IO ()
   }
@@ -99,9 +100,13 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
       colorsCount = 8
 
       getButtonLabelAndClass
-        ∷ Pitch → HashMap RowKey Pitch → NotesPerOctave → RowKey → String → (String, Maybe String)
+        ∷ Pitch → HashMap RowKey Pitch
+        → Octave → NotesPerOctave
+        → RowKey → String
+        → (String, Maybe String)
 
-      getButtonLabelAndClass basePitch pitchMapping perOctave rowKey keyLabel = (label, className)
+      getButtonLabelAndClass basePitch pitchMapping octave perOctave rowKey keyLabel =
+        (label, className)
         where
           foundPitch = lookup rowKey pitchMapping <&> fromPitch
 
@@ -114,12 +119,15 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
           className = do
             x ← foundPitch <&> subtract (fromPitch basePitch) <&> fromIntegral
 
+            let octaveN    = pred $ fromIntegral $ fromOctave octave     ∷ Double
+                perOctaveN = fromIntegral $ fromNotesPerOctave perOctave ∷ Double
+
             pure $
               if x ≥ 0
-                 then let n = floor $ x / fromIntegral (fromNotesPerOctave perOctave)
+                 then let n = floor $ x ÷ perOctaveN
                        in [qm| btn-octave-{succ $ n `mod` colorsCount} |]
 
-                 else let n = floor $ (negate x - 1) / fromIntegral (fromNotesPerOctave perOctave)
+                 else let n = floor $ (negate x - 1) ÷ perOctaveN
                        in [qm| btn-octave-{succ $ pred colorsCount - (n `mod` colorsCount)} |]
 
   (allButtonsRows, allButtons) ← do
@@ -144,6 +152,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
               let v = initialValues ctx in
               getButtonLabelAndClass (guiStateBasePitch v)
                                      (guiStatePitchMapping v)
+                                     (guiStateOctave v)
                                      (guiStateNotesPerOctave v)
                                      rowKey keyLabel
 
@@ -167,7 +176,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
       menu ← menuNew
       set menu [menuTitle := "Select MIDI channel"]
 
-      forM_ [(minBound :: Channel) .. maxBound] $ \ch → do
+      forM_ [(minBound ∷ Channel) .. maxBound] $ \ch → do
         menuItem ← menuItemNew
         set menuItem [menuItemLabel := show $ succ $ fromChannel ch]
         on menuItem menuItemActivated $ selectChannelHandler ctx ch
@@ -176,7 +185,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
       menu <$ widgetShowAll menu
 
     label ← labelNew (Nothing ∷ Maybe String)
-    let getLabel ch = [qm| Channel: <b>{succ $ fromChannel ch}</b> |] :: String
+    let getLabel ch = [qm| Channel: <b>{succ $ fromChannel ch}</b> |] ∷ String
     labelSetMarkup label $ getLabel $ guiStateChannel $ initialValues ctx
 
     btn ← buttonNew
@@ -198,7 +207,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
       menu <$ widgetShowAll menu
 
     label ← labelNew (Nothing ∷ Maybe String)
-    let getLabel rowKey = [qm| Base key: <b>{keyLabelMap ! rowKey}</b> |] :: String
+    let getLabel rowKey = [qm| Base key: <b>{keyLabelMap ! rowKey}</b> |] ∷ String
     labelSetMarkup label $ getLabel $ guiStateBaseKey $ initialValues ctx
 
     btn ← buttonNew
@@ -227,12 +236,34 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ succ ∘ fromPitch)
 
+  (octaveEl, octaveUpdater) ← do
+    let val = fromIntegral $ fromOctave $ guiStateOctave $ initialValues ctx
+        minOctave = fromIntegral $ fromOctave minBound
+        maxOctave = fromIntegral $ fromOctave maxBound
+
+    btn ← spinButtonNewWithRange minOctave maxOctave 1
+    set btn [spinButtonValue := val]
+
+    label ← labelNew $ Just "Octave:"
+
+    box ← vBoxNew False 5
+    containerAdd box label
+    containerAdd box btn
+
+    connectGeneric "value-changed" True btn $ \_ → do
+      x ← fromIntegral <$> spinButtonGetValueAsInt btn
+      setOctaveHandler ctx $ Octave x
+      pure (0 ∷ CInt)
+
+    pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ fromOctave)
+
   topButtons ← do
     box ← hBoxNew False 5
     containerAdd box panicEl
     containerAdd box channelEl
     containerAdd box baseKeyEl
     containerAdd box basePitchEl
+    containerAdd box octaveEl
     containerAdd box exitEl
     pure box
 
@@ -270,14 +301,15 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
       buttonsMap = fromList allButtons
 
       updateButton
-        ∷ Pitch → HashMap RowKey Pitch → NotesPerOctave
+        ∷ Pitch → HashMap RowKey Pitch
+        → Octave → NotesPerOctave
         → (RowKey, (Button, String → IO ())) → IO ()
 
-      updateButton basePitch pitchMapping perOctave (rowKey, (btn, labelUpdater)) = do
+      updateButton basePitch pitchMapping octave perOctave (rowKey, (btn, labelUpdater)) = do
         let keyLabel = keyLabelMap ! rowKey
 
             (btnLabel, className) =
-              getButtonLabelAndClass basePitch pitchMapping perOctave rowKey keyLabel
+              getButtonLabelAndClass basePitch pitchMapping octave perOctave rowKey keyLabel
 
         styleContext ← widgetGetStyleContext btn
         forM_ colors $ removeColorClass styleContext
@@ -292,8 +324,8 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
       updateButtons = do
         s ← readIORef guiStateRef
 
-        forM_ allButtons $
-          updateButton (guiStateBasePitch s) (guiStatePitchMapping s) (guiStateNotesPerOctave s)
+        forM_ allButtons $ updateButton (guiStateBasePitch s) (guiStatePitchMapping s)
+                                        (guiStateOctave s)    (guiStateNotesPerOctave s)
 
   void $ forkIO $ catchThreadFail "GUI listener for GUI state updates" $ forever $
     takeMVar stateUpdateBus >>= \case
