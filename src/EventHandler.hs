@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 -- A module that transforms some events such as key press/release to MIDI events.
 -- It also stores some application state such as current base note, current channel, etc., and
@@ -18,7 +19,10 @@ import Prelude hiding (lookup)
 import Prelude.Unicode
 
 import Data.IORef
+import Data.Maybe
+import Data.List (elemIndex)
 import Data.HashMap.Strict hiding (filter)
+import Text.InterpolatedString.QM
 
 import Control.Monad
 import Control.Arrow
@@ -207,43 +211,33 @@ runEventHandler ctx = do
 
 
 getPitchMapping ∷ RowKey → Pitch → Octave → BaseOctave → NotesPerOctave → HashMap RowKey Pitch
-getPitchMapping baseKey' basePitch' octave' baseOctave' notesPerOctave' =
-  fromList (zip l lp) `union` fromList (zip r rp)
-  where (reverse → l, r) = span (/= baseKey') allKeysOrder
+getPitchMapping baseKey' basePitch' octave' baseOctave' notesPerOctave' = l `union` r
+  where (l, r) = f $ splitAt splitKeysPos allKeysOrder
 
-        basePitchZ, octaveZ, baseOctaveZ, notesPerOctaveZ, minPitchZ, maxPitchZ ∷ ℤ
+        f = first (reverse • drop leftSliceCount)
+            >>> flip zip lp *** flip zip rp
+            >>> fromList    *** fromList
 
-        basePitchZ      = toInteger $ fromPitch basePitch'
-        octaveZ         = toInteger $ fromOctave octave'
-        baseOctaveZ     = toInteger $ fromOctave $ fromBaseOctave baseOctave'
-        notesPerOctaveZ = toInteger $ fromNotesPerOctave $ notesPerOctave'
+        basePitchN      = fromPitch basePitch'
+        octaveN         = fromIntegral $ fromOctave octave'
+        baseOctaveN     = fromIntegral $ fromOctave $ fromBaseOctave baseOctave'
+        notesPerOctaveN = fromIntegral $ fromNotesPerOctave notesPerOctave'
 
-        minPitchZ       = toInteger $ fromPitch minBound
-        maxPitchZ       = toInteger $ fromPitch maxBound
+        minPitch        = fromPitch minBound
+        maxPitch        = fromPitch maxBound
 
-        octaveShiftZ, shiftedPitchZ ∷ ℤ
+        octaveShift     = (baseOctaveN - octaveN) ⋅ notesPerOctaveN
+        shiftedPitch    = basePitchN - octaveShift
 
-        octaveShiftZ    = (baseOctaveZ - octaveZ) * notesPerOctaveZ
-        shiftedPitchZ   = basePitchZ - octaveShiftZ
+        baseKeyPos      = fromMaybe (error [qm| Key {baseKey'} not found |])
+                        $ baseKey' `elemIndex` allKeysOrder
 
-        isPitchInBound ∷ ℤ → 𝔹
-        isPitchInBound x = x ≥ minPitchZ ∧ x ≤ maxPitchZ
+        splitKeysPos    = baseKeyPos + abs (min 0 shiftedPitch)
+        leftSliceCount  = max maxPitch (pred shiftedPitch) - maxPitch
 
         lp, rp ∷ [Pitch]
-
-        lp = fmap (toPitch ∘ fromInteger) $ filter isPitchInBound $ eitherValue $ do
-          if shiftedPitchZ > minPitchZ then Right () else Left []
-          let prev = pred shiftedPitchZ
-          if prev > minPitchZ
-             then Right [prev, pred prev .. minPitchZ]
-             else Left [prev]
-
-        rp = fmap (toPitch ∘ fromInteger) $ filter isPitchInBound $ eitherValue $ do
-          if maxPitchZ > shiftedPitchZ then Right () else Left [shiftedPitchZ]
-          let next = succ shiftedPitchZ
-          if maxPitchZ > next
-             then Right [shiftedPitchZ .. maxPitchZ]
-             else Left [shiftedPitchZ, next]
+        rp = fmap toPitch [max minPitch shiftedPitch .. maxPitch]
+        lp = fmap toPitch [x, pred x .. minPitch] where x = min maxPitch $ pred shiftedPitch
 
 
 -- For extracting value from breakable monads
