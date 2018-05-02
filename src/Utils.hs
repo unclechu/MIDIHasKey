@@ -20,6 +20,7 @@ import Data.Proxy
 import Data.Word
 import Data.Maybe (maybe)
 import qualified Data.Function ((&))
+import Data.Monoid
 
 import Control.Monad ((<$!>), void)
 import Control.Exception (SomeException, handle)
@@ -75,12 +76,18 @@ infixr 5 <&>
 {-# INLINE (<&!>) #-}
 infixr 5 <&!>
 
+-- Generic concatenation
+(⋄) ∷ Monoid a ⇒ a → a → a
+(⋄) = (<>)
+{-# INLINE (⋄) #-}
+infixr 6 ⋄
+
 
 -- Helps to prevent undefined behavior when application still working after some of its subsystem is
 -- failed. Usually it goes okay, but if something unexpectedly goes wrong, we shouldn't continue
 -- working and making user to be confused.
 catchThreadFail ∷ String → IO () → IO ()
-catchThreadFail (("'" ⧺) → (⧺ "' thread is failed!") → failMsg) =
+catchThreadFail (("'" ⋄) → (⋄ "' thread is failed!") → failMsg) =
   handle $ \(e ∷ SomeException) → hPutStrLn stderr failMsg >> hPrint stderr e >> exit
 
 dupe ∷ a → (a, a)

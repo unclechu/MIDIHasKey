@@ -58,7 +58,7 @@ runKeyboardHandling ctx =
   getDeviceReaders devices' <&> zip devices' >>= mapM_ (uncurry runReader)
 
   where devices' = devices ctx
-        readerThreadName x = "Keyboard events reader for '" ⧺ x ⧺ "'"
+        readerThreadName x = "Keyboard events reader for '" ⋄ x ⋄ "'"
 
         runReader ∷ FilePath → DeviceReader → IO ()
         runReader devPath devReader =

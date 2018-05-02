@@ -27,7 +27,7 @@ import Sound.MIDI.Message.Channel
 -- local
 import Keys.Types
 import Keys.Helpers
-import Utils (type (↔))
+import Utils (type (↔), (⋄))
 
 
 type GUIKeyOfRow = (RowKey, String)
@@ -48,7 +48,7 @@ class RowKeys a where
   getRowKeys ∷ Proxy a → GUIKeysRow
 
 instance (RowKeys h, RowKeys t) ⇒ RowKeys (h ↔ t) where
-  getRowKeys Proxy = getRowKeys (Proxy ∷ Proxy h) ⧺ getRowKeys (Proxy ∷ Proxy t)
+  getRowKeys Proxy = getRowKeys (Proxy ∷ Proxy h) ⋄ getRowKeys (Proxy ∷ Proxy t)
 
 instance (SingI x, s ~ GetLabel x, KnownSymbol s) ⇒ RowKeys (x ∷ RowKey) where
   getRowKeys Proxy = [(fromSing (sing ∷ Sing x), symbolVal (Proxy ∷ Proxy s))]

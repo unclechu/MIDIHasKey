@@ -23,7 +23,7 @@ import Data.Singletons.TH
 -- local
 import Keys.Types
 import Keys.Helpers
-import Utils (type (↔))
+import Utils (type (↔), (⋄))
 
 
 class AllKeysOrder a where
@@ -33,10 +33,10 @@ instance AllKeysOrder '[] where
   getAllKeysOrder Proxy = []
 
 instance (AllKeysOrder h, AllKeysOrder t) ⇒ AllKeysOrder (h ': t) where
-  getAllKeysOrder Proxy = getAllKeysOrder (Proxy ∷ Proxy h) ⧺ getAllKeysOrder (Proxy ∷ Proxy t)
+  getAllKeysOrder Proxy = getAllKeysOrder (Proxy ∷ Proxy h) ⋄ getAllKeysOrder (Proxy ∷ Proxy t)
 
 instance (AllKeysOrder h, AllKeysOrder t) ⇒ AllKeysOrder (h ↔ t) where
-  getAllKeysOrder Proxy = getAllKeysOrder (Proxy ∷ Proxy h) ⧺ getAllKeysOrder (Proxy ∷ Proxy t)
+  getAllKeysOrder Proxy = getAllKeysOrder (Proxy ∷ Proxy h) ⋄ getAllKeysOrder (Proxy ∷ Proxy t)
 
 instance (SingI x) ⇒ AllKeysOrder (x ∷ RowKey) where
   getAllKeysOrder Proxy = [fromSing (sing ∷ Sing x)]
