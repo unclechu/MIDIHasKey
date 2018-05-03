@@ -42,25 +42,34 @@ import Keys.Specific.GUI
 
 data GUIContext
   = GUIContext
-  { initialValues        ∷ GUIState
-  , appExitHandler       ∷ IO ()
-  , panicButtonHandler   ∷ IO ()
-  , setBaseKeyHandler    ∷ RowKey → IO ()
-  , setBasePitchHandler  ∷ Pitch → IO ()
-  , setOctaveHandler     ∷ Octave → IO ()
-  , selectChannelHandler ∷ Channel → IO ()
-  , noteButtonHandler    ∷ RowKey → 𝔹 → IO ()
+  { initialValues            ∷ GUIState
+
+  , appExitHandler           ∷ IO ()
+  , panicButtonHandler       ∷ IO ()
+
+  , setBaseKeyHandler        ∷ RowKey → IO ()
+  , setBasePitchHandler      ∷ Pitch → IO ()
+  , setOctaveHandler         ∷ Octave → IO ()
+  , setBaseOctaveHandler     ∷ BaseOctave → IO ()
+  , setNotesPerOctaveHandler ∷ NotesPerOctave → IO ()
+
+  , selectChannelHandler     ∷ Channel → IO ()
+
+  , noteButtonHandler        ∷ RowKey → 𝔹 → IO ()
   }
 
 data GUIState
   = GUIState
   { guiStateBaseKey        ∷ RowKey
   , guiStateBasePitch      ∷ Pitch
+  , guiStateOctave         ∷ Octave
+  , guiStateBaseOctave     ∷ BaseOctave
+  , guiStateNotesPerOctave ∷ NotesPerOctave
+
   , guiStatePitchMapping   ∷ HashMap RowKey Pitch
+
   , guiStateChannel        ∷ Channel
   , guiStateVelocity       ∷ Velocity
-  , guiStateOctave         ∷ Octave
-  , guiStateNotesPerOctave ∷ NotesPerOctave
   }
 
 data GUIInterface
@@ -71,11 +80,15 @@ data GUIInterface
 data GUIStateUpdate
   = SetBaseKey        RowKey
   | SetBasePitch      Pitch
+  | SetOctave         Octave
+  | SetBaseOctave     BaseOctave
+  | SetNotesPerOctave NotesPerOctave
+
   | SetPitchMapping   (HashMap RowKey Pitch)
+
   | SetChannel        Channel
   | SetVelocity       Velocity
-  | SetOctave         Octave
-  | SetNotesPerOctave NotesPerOctave
+
   | KeyButtonState    RowKey 𝔹
   deriving (Show, Eq)
 
@@ -257,14 +270,62 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ fromOctave)
 
+  (baseOctaveEl, baseOctaveUpdater) ← do
+    let val = fromIntegral $ fromOctave $ fromBaseOctave $ guiStateBaseOctave $ initialValues ctx
+        minOctave = fromIntegral $ fromOctave minBound
+        maxOctave = fromIntegral $ fromOctave maxBound
+
+    btn ← spinButtonNewWithRange minOctave maxOctave 1
+    set btn [spinButtonValue := val]
+
+    label ← labelNew $ Just "Base octave:"
+
+    box ← vBoxNew False 5
+    containerAdd box label
+    containerAdd box btn
+
+    connectGeneric "value-changed" True btn $ \_ → do
+      x ← fromIntegral <$> spinButtonGetValueAsInt btn
+      setBaseOctaveHandler ctx $ BaseOctave $ Octave x
+      pure (0 ∷ CInt)
+
+    pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ fromOctave ∘ fromBaseOctave)
+
+  (notesPerOctaveEl, notesPerOctaveUpdater) ← do
+    let val = fromIntegral $ fromNotesPerOctave $ guiStateNotesPerOctave $ initialValues ctx
+        minV = fromIntegral $ fromNotesPerOctave minBound
+        maxV = fromIntegral $ fromNotesPerOctave maxBound
+
+    btn ← spinButtonNewWithRange minV maxV 1
+    set btn [spinButtonValue := val]
+
+    label ← labelNew $ Just "Notes per octave:"
+
+    box ← vBoxNew False 5
+    containerAdd box label
+    containerAdd box btn
+
+    connectGeneric "value-changed" True btn $ \_ → do
+      x ← fromIntegral <$> spinButtonGetValueAsInt btn
+      setNotesPerOctaveHandler ctx $ NotesPerOctave x
+      pure (0 ∷ CInt)
+
+    pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ fromNotesPerOctave)
+
   topButtons ← do
     box ← hBoxNew False 5
     containerAdd box panicEl
     containerAdd box channelEl
     containerAdd box baseKeyEl
-    containerAdd box basePitchEl
-    containerAdd box octaveEl
     containerAdd box exitEl
+    pure box
+
+  topNumberBoxes ← do
+    box ← hBoxNew False 5
+    containerAdd box basePitchEl
+    containerAdd box baseOctaveEl
+    containerAdd box notesPerOctaveEl
+    containerAdd box octaveEl
     pure box
 
   keyRowsBox ← do
@@ -291,6 +352,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
   mainBox ← do
     box ← vBoxNew False 5
     containerAdd box topButtons
+    containerAdd box topNumberBoxes
     containerAdd box keyboardFrame
     pure box
 
@@ -337,6 +399,18 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
         modifyIORef guiStateRef $ \s → s { guiStateBasePitch = p }
         postGUIAsync $ basePitchUpdater p >> updateButtons
 
+      SetOctave o → do
+        modifyIORef guiStateRef $ \s → s { guiStateOctave = o }
+        postGUIAsync $ octaveUpdater o >> updateButtons
+
+      SetBaseOctave o → do
+        modifyIORef guiStateRef $ \s → s { guiStateBaseOctave = o }
+        postGUIAsync $ baseOctaveUpdater o >> updateButtons
+
+      SetNotesPerOctave n → do
+        modifyIORef guiStateRef $ \s → s { guiStateNotesPerOctave = n }
+        postGUIAsync $ notesPerOctaveUpdater n >> updateButtons
+
       SetPitchMapping mapping → do
         modifyIORef guiStateRef $ \s → s { guiStatePitchMapping = mapping }
         postGUIAsync updateButtons
@@ -347,14 +421,6 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
       SetVelocity vel →
         modifyIORef guiStateRef $ \s → s { guiStateVelocity = vel }
-
-      SetOctave octave → do
-        modifyIORef guiStateRef $ \s → s { guiStateOctave = octave }
-        postGUIAsync updateButtons
-
-      SetNotesPerOctave perOctave → do
-        modifyIORef guiStateRef $ \s → s { guiStateNotesPerOctave = perOctave }
-        postGUIAsync updateButtons
 
       KeyButtonState rowKey isPressed →
         fromMaybe (pure ()) $ rowKey `lookup` buttonsMap <&> \(w, _) → postGUIAsync $ do

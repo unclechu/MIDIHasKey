@@ -56,13 +56,11 @@ data EventHandlerInterface
 
 data AppState
   = AppState
-  { baseKey        ∷ RowKey   -- A key of the keyboard which would be a set point
-  , basePitch      ∷ Pitch    -- A pitch that will be associated with `baseKey`
-  , channel        ∷ Channel  -- MIDI channel
-  , velocity       ∷ Velocity -- MIDI velocity for the tiggered notes
-  , octave         ∷ Octave   -- Current octave, it's not supposed to mean a real octave
-                              -- but a shift from `basePitch` by `notesPerOctave`
-                              -- relatively to the `baseOctave`.
+  { baseKey        ∷ RowKey -- A key of the keyboard which would be a set point
+  , basePitch      ∷ Pitch  -- A pitch that will be associated with `baseKey`
+  , octave         ∷ Octave -- Current octave, it's not supposed to mean a real octave
+                            -- but a shift from `basePitch` by `notesPerOctave`
+                            -- relatively to the `baseOctave`.
   , baseOctave     ∷ BaseOctave -- `octave` value that would be `basePitch` on `baseKey`
                                 -- that means when `octave` equals `baseOctave` `basePitch`
                                 -- wouldn't be shifted at all.
@@ -75,19 +73,23 @@ data AppState
                                                 -- something was shifted (`octave`, `basePitch`,
                                                 -- `channel`, etc.) while some note isn't
                                                 -- released yet.
+  , channel        ∷ Channel  -- MIDI channel
+  , velocity       ∷ Velocity -- MIDI velocity for the tiggered notes
   } deriving (Show, Eq)
 
 data EventToHandle
   = KeyPress   RowKey
   | KeyRelease RowKey
 
+  -- Constructors of new values that shifts key mapping
   | NewBaseKey        RowKey
   | NewBasePitch      Pitch
-  | NewChannel        Channel
-  | NewVelocity       Velocity
   | NewOctave         Octave
   | NewBaseOctave     BaseOctave
   | NewNotesPerOctave NotesPerOctave
+
+  | NewChannel        Channel
+  | NewVelocity       Velocity
 
   | PanicEvent
 
