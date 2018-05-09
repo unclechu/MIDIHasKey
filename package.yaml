@@ -18,9 +18,11 @@ extra-source-files:
   - ChangeLog.md
 
 dependencies:
+  - aeson
   - base >= 4.7 && < 5
   - base-unicode-symbols
   - bytestring
+  - data-default
   - glib
   - gtk3
   - hashable
@@ -28,9 +30,12 @@ dependencies:
   - midi
   - process
   - qm-interpolated-string
+  - scientific
   - singletons
+  - text
   - transformers
   - unordered-containers
+  - xdg-basedir
 
 library:
   source-dirs: src

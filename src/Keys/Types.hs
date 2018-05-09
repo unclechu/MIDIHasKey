@@ -35,7 +35,7 @@ singletons [d|
     | BacktickKey | N1Key | N2Key | N3Key | N4Key | N5Key | N6Key | N7Key | N8Key | N9Key | N0Key
     | MinusKey | EqualKey
 
-    deriving (Show, Eq, Generic)
+    deriving (Show, Read, Eq, Generic)
     |]
 
 instance Hashable RowKey

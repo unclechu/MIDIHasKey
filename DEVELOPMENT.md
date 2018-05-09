@@ -14,7 +14,7 @@ When you add new app state field you'd probably need to handle it in different m
 1. `EventHandler` module:
    1. Extend `AppState` data type with your new field;
    2. You may need to add a constructor of `EventToHandle` to change a value of your new field;
-   3. Add default value of your new field to `defaultAppState`;
+   3. Add default value of your new field to `Default AppState` instance;
    4. Add transform for new value of your new field to `runEventHandler`;
    5. If your field could shift current pitch:
       1. Check if it's changed in `updateStateMiddleware` to update pitch mapping;

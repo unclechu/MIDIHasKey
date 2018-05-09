@@ -20,6 +20,7 @@ import Prelude.Unicode
 
 import Data.IORef
 import Data.Maybe
+import Data.Default
 import Data.List (elemIndex)
 import Data.HashMap.Strict hiding (filter)
 import Text.InterpolatedString.QM
@@ -108,33 +109,33 @@ data StoredEvent
   deriving (Show, Eq)
 
 
-defaultAppState ∷ AppState
-defaultAppState =
-
-  AppState { baseKey        = baseKey'
-           , basePitch      = basePitch'
-           , channel        = minBound
-           , velocity       = normalVelocity
-           , octave         = octave'
-           , baseOctave     = baseOctave'
-           , notesPerOctave = notesPerOctave'
-           , pitchMap       = getPitchMapping baseKey' basePitch'
-                                              octave' baseOctave'
-                                              notesPerOctave'
-           , storedEvents   = empty
-           }
-
-  where baseKey'        = AKey
-        basePitch'      = toPitch 19 -- 20th in [1..128]
-        octave'         = fromBaseOctave baseOctave'
-        baseOctave'     = BaseOctave $ Octave 4
-        notesPerOctave' = NotesPerOctave 12
+instance Default AppState where
+  def
+    = AppState
+    { baseKey        = baseKey'
+    , basePitch      = basePitch'
+    , channel        = minBound
+    , velocity       = normalVelocity
+    , octave         = octave'
+    , baseOctave     = baseOctave'
+    , notesPerOctave = notesPerOctave'
+    , pitchMap       = getPitchMapping baseKey' basePitch'
+                                       octave' baseOctave'
+                                       notesPerOctave'
+    , storedEvents   = empty
+    }
+    where
+    baseKey'         = AKey
+    basePitch'       = toPitch 19 -- 20th in [1..128]
+    octave'          = fromBaseOctave baseOctave'
+    baseOctave'      = toBaseOctave' 4
+    notesPerOctave'  = toNotesPerOctave 12
 
 
 runEventHandler ∷ EventHandlerContext → IO EventHandlerInterface
 runEventHandler ctx = do
   (bus         ∷ EventHandlerBus) ← newEmptyMVar
-  (appStateRef ∷ IORef AppState)  ← newIORef defaultAppState
+  (appStateRef ∷ IORef AppState)  ← newIORef def
 
   let interface
         = EventHandlerInterface
@@ -194,11 +195,11 @@ runEventHandler ctx = do
   where updateStateMiddleware ∷ (AppState → AppState) → AppState → AppState
         updateStateMiddleware f oldState =
 
-          if baseKey        newState /= baseKey        oldState
-          || basePitch      newState /= basePitch      oldState
-          || octave         newState /= octave         oldState
-          || baseOctave     newState /= baseOctave     oldState
-          || notesPerOctave newState /= notesPerOctave oldState
+          if baseKey        newState ≠ baseKey        oldState
+          || basePitch      newState ≠ basePitch      oldState
+          || octave         newState ≠ octave         oldState
+          || baseOctave     newState ≠ baseOctave     oldState
+          || notesPerOctave newState ≠ notesPerOctave oldState
              then newState { pitchMap = getPitchMapping baseKey' basePitch'
                                                         octave' baseOctave'
                                                         notesPerOctave' }
@@ -222,7 +223,7 @@ getPitchMapping baseKey' basePitch' octave' baseOctave' notesPerOctave' = l `uni
 
         basePitchN      = fromPitch basePitch'
         octaveN         = fromIntegral $ fromOctave octave'
-        baseOctaveN     = fromIntegral $ fromOctave $ fromBaseOctave baseOctave'
+        baseOctaveN     = fromIntegral $ fromBaseOctave' baseOctave'
         notesPerOctaveN = fromIntegral $ fromNotesPerOctave notesPerOctave'
 
         minPitch        = fromPitch minBound

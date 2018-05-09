@@ -1,8 +1,25 @@
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
-module Types where
+module Types
+     ( NotesPerOctave
+     , fromNotesPerOctave
+     , toNotesPerOctave
+
+     , Octave
+     , fromOctave
+     , toOctave
+
+     , BaseOctave
+     , fromBaseOctave
+     , fromBaseOctave'
+     , toBaseOctave
+     , toBaseOctave'
+
+     , WindowTitle
+     ) where
 
 import Prelude.Unicode
 import GHC.TypeLits
@@ -18,6 +35,9 @@ type WindowTitle = "MIDIHasKey — Virtual MIDI keyboard for microtonal music"
 
 
 newtype NotesPerOctave = NotesPerOctave { fromNotesPerOctave ∷ Word8 } deriving (Eq, Show, Ord)
+
+toNotesPerOctave ∷ Word8 → NotesPerOctave
+toNotesPerOctave = NotesPerOctave • guardBounds
 
 instance Bounded NotesPerOctave where
   minBound = NotesPerOctave 1
@@ -46,6 +66,9 @@ instance Enum NotesPerOctave where
 
 newtype Octave = Octave { fromOctave ∷ Word8 } deriving (Eq, Show, Ord)
 
+toOctave ∷ Word8 → Octave
+toOctave = Octave • guardBounds
+
 instance Bounded Octave where
   minBound = Octave 1
   maxBound = Octave 16
@@ -72,3 +95,22 @@ instance Enum Octave where
 
 -- To avoid human-factor errors
 newtype BaseOctave = BaseOctave { fromBaseOctave ∷ Octave } deriving (Eq, Show, Ord)
+
+toBaseOctave ∷ Octave → BaseOctave
+toBaseOctave = BaseOctave
+{-# INLINE toBaseOctave #-}
+
+toBaseOctave' ∷ Word8 → BaseOctave
+toBaseOctave' = toBaseOctave ∘ toOctave
+{-# INLINE toBaseOctave' #-}
+
+fromBaseOctave' ∷ BaseOctave → Word8
+fromBaseOctave' = fromBaseOctave • fromOctave
+{-# INLINE fromBaseOctave' #-}
+
+
+guardBounds ∷ ∀ α. (Ord α, Show α, Bounded α) ⇒ α → α
+guardBounds x | x < minBound ∨ x > maxBound = error [qms| {x} is out of bounds,
+                                                          it supposed to be between
+                                                          {minBound ∷ α} and {maxBound ∷ α} |]
+              | otherwise = x

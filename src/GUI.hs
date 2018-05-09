@@ -265,13 +265,13 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     connectGeneric "value-changed" True btn $ \_ → do
       x ← fromIntegral <$> spinButtonGetValueAsInt btn
-      setOctaveHandler ctx $ Octave x
+      setOctaveHandler ctx $ toOctave x
       pure (0 ∷ CInt)
 
     pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ fromOctave)
 
   (baseOctaveEl, baseOctaveUpdater) ← do
-    let val = fromIntegral $ fromOctave $ fromBaseOctave $ guiStateBaseOctave $ initialValues ctx
+    let val = fromIntegral $ fromBaseOctave' $ guiStateBaseOctave $ initialValues ctx
         minOctave = fromIntegral $ fromOctave minBound
         maxOctave = fromIntegral $ fromOctave maxBound
 
@@ -286,10 +286,10 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     connectGeneric "value-changed" True btn $ \_ → do
       x ← fromIntegral <$> spinButtonGetValueAsInt btn
-      setBaseOctaveHandler ctx $ BaseOctave $ Octave x
+      setBaseOctaveHandler ctx $ toBaseOctave' x
       pure (0 ∷ CInt)
 
-    pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ fromOctave ∘ fromBaseOctave)
+    pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ fromBaseOctave')
 
   (notesPerOctaveEl, notesPerOctaveUpdater) ← do
     let val = fromIntegral $ fromNotesPerOctave $ guiStateNotesPerOctave $ initialValues ctx
@@ -307,7 +307,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     connectGeneric "value-changed" True btn $ \_ → do
       x ← fromIntegral <$> spinButtonGetValueAsInt btn
-      setNotesPerOctaveHandler ctx $ NotesPerOctave x
+      setNotesPerOctaveHandler ctx $ toNotesPerOctave x
       pure (0 ∷ CInt)
 
     pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ fromNotesPerOctave)

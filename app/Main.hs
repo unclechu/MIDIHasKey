@@ -23,6 +23,7 @@ import MIDIPlayer
 import HandleKeyboard
 import EventHandler
 import Keys.Types
+import MIDIHasKey.Config
 
 
 main = do
@@ -67,7 +68,7 @@ main = do
 
   let sendToEventHandler = handleEvent evIface
 
-      keyHandler ∷ RowKey → Bool → IO ()
+      keyHandler ∷ RowKey → 𝔹 → IO ()
       keyHandler rowKey isPressed =
         let ev = if isPressed then KeyPress rowKey else KeyRelease rowKey
          in void $ forkIO $ sendToEventHandler ev
