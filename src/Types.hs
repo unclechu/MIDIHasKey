@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ExplicitNamespaces #-}
 
 module Types
      ( NotesPerOctave
@@ -19,6 +20,7 @@ module Types
      , toBaseOctave'
 
      , WindowTitle
+     , AlertMessage (..)
      ) where
 
 import Prelude.Unicode
@@ -26,12 +28,19 @@ import GHC.TypeLits
 
 import Data.Word
 import Text.InterpolatedString.QM
+import Data.Text (type Text)
 
 -- local
 import Utils
 
 
 type WindowTitle = "MIDIHasKey — Virtual MIDI keyboard for microtonal music"
+
+
+data AlertMessage
+   = ErrorAlert Text
+   | InfoAlert  Text
+     deriving (Eq, Show)
 
 
 newtype NotesPerOctave = NotesPerOctave { fromNotesPerOctave ∷ Word8 } deriving (Eq, Show, Ord)
@@ -44,7 +53,7 @@ instance Bounded NotesPerOctave where
   maxBound = NotesPerOctave 128
 
 instance Enum NotesPerOctave where
-  succ x@(NotesPerOctave y) | x ≥ maxBound = error "Cannot `succ` `minBound ∷ NotesPerOctave`"
+  succ x@(NotesPerOctave y) | x ≥ maxBound = error "Cannot `succ` `maxBound ∷ NotesPerOctave`"
                             | otherwise = NotesPerOctave $ succ y
 
   pred x@(NotesPerOctave y) | x ≤ minBound = error "Cannot `pred` `minBound ∷ NotesPerOctave`"
@@ -74,7 +83,7 @@ instance Bounded Octave where
   maxBound = Octave 16
 
 instance Enum Octave where
-  succ x@(Octave y) | x ≥ maxBound = error "Cannot `succ` `minBound ∷ Octave`"
+  succ x@(Octave y) | x ≥ maxBound = error "Cannot `succ` `maxBound ∷ Octave`"
                     | otherwise = Octave $ succ y
 
   pred x@(Octave y) | x ≤ minBound = error "Cannot `pred` `minBound ∷ Octave`"

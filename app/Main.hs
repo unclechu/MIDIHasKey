@@ -1,9 +1,15 @@
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase #-}
 
 import Prelude.Unicode
 
 import Data.Proxy
+import Data.Default (def)
+import Text.InterpolatedString.QM
 
 import Control.Monad
 import Control.Concurrent
@@ -17,8 +23,8 @@ import Sound.MIDI.Message.Channel.Voice (normalVelocity)
 
 -- local
 import Utils
-import GUI
 import Types
+import GUI
 import MIDIPlayer
 import HandleKeyboard
 import EventHandler
@@ -29,6 +35,13 @@ import MIDIHasKey.Config
 main = do
   (appExitBus        ∷ MVar ())             ← newEmptyMVar
   (guiStateUpdateBus ∷ MVar GUIStateUpdate) ← newEmptyMVar
+  (alertsBus         ∷ MVar AlertMessage)   ← newEmptyMVar
+
+  !(config ∷ Config) ←
+    readConfig >>= \case
+      Right config → pure config
+      Left  errMsg → def <$ alertsBus `putMVar`
+        ErrorAlert [qms| Parsing config failed with message: {errMsg} |]
 
   evIface ← runMIDIPlayer >>= \sendToMP →
 
@@ -110,8 +123,13 @@ main = do
                       , noteButtonHandler        = keyHandler
                       }
 
-  void $ forkIO $ catchThreadFail "Main module listener for GUI state updates" $ forever $
+  void $ forkIO $ catchThreadFail [] "Main module listener for GUI state updates" $ forever $
     takeMVar guiStateUpdateBus >>= guiStateUpdate guiIface
+
+  -- void $ forkIO $ catchThreadFail [] "Main module listener for alerts bus" $ forever $
+  --   takeMVar alertsBus >>= guiShowAlert guiIface
+  -- It's commented because it fails with `BlockedIndefinitelyOnMVar` exception.
+  tryTakeMVar alertsBus >>= maybeMUnit (guiShowAlert guiIface)
 
   takeMVar appExitBus
   hPutStrLn stderr "Application is terminating…"

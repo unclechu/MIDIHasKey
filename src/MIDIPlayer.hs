@@ -42,7 +42,7 @@ runMIDIPlayer ∷ IO MIDIPlayerSender
 runMIDIPlayer = do
   (bus ∷ MIDIPlayerBus) ← newEmptyMVar
 
-  (putMVar bus <$) $ forkIO $ catchThreadFail "MIDI Player" $ do
+  (putMVar bus <$) $ forkIO $ catchThreadFail [] "MIDI Player" $ do
     (Just inHdl, _, _, !_) ← createProcess (proc "./midiplayer" []) {std_in = CreatePipe}
     hSetBuffering inHdl NoBuffering
     hSetBinaryMode inHdl True

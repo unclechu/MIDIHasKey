@@ -23,6 +23,8 @@ dependencies:
   - base-unicode-symbols
   - bytestring
   - data-default
+  - directory
+  - filepath
   - glib
   - gtk3
   - hashable
@@ -35,7 +37,6 @@ dependencies:
   - text
   - transformers
   - unordered-containers
-  - xdg-basedir
 
 library:
   source-dirs: src

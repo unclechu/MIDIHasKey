@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ExplicitNamespaces #-}
 
 module GUI
      ( runGUI
@@ -20,6 +21,7 @@ import Data.IORef
 import Data.Proxy
 import Data.Maybe
 import Data.HashMap.Strict
+import Data.Text (type Text)
 import Text.InterpolatedString.QM
 
 import Control.Monad
@@ -75,6 +77,7 @@ data GUIState
 data GUIInterface
   = GUIInterface
   { guiStateUpdate ∷ GUIStateUpdate → IO ()
+  , guiShowAlert   ∷ AlertMessage → IO ()
   }
 
 data GUIStateUpdate
@@ -93,7 +96,7 @@ data GUIStateUpdate
   deriving (Show, Eq)
 
 
-mainAppWindow ∷ GUIContext → CssProvider → MVar GUIStateUpdate → IO ()
+mainAppWindow ∷ GUIContext → CssProvider → MVar GUIStateUpdate → IO Window
 mainAppWindow ctx cssProvider stateUpdateBus = do
   guiStateRef ← newIORef $ initialValues ctx
 
@@ -389,7 +392,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
         forM_ allButtons $ updateButton (guiStateBasePitch s) (guiStatePitchMapping s)
                                         (guiStateOctave s)    (guiStateNotesPerOctave s)
 
-  void $ forkIO $ catchThreadFail "GUI listener for GUI state updates" $ forever $
+  void $ forkIO $ catchThreadFail [] "GUI listener for GUI state updates" $ forever $
     takeMVar stateUpdateBus >>= \case
       SetBaseKey k → do
         modifyIORef guiStateRef $ \s → s { guiStateBaseKey = k }
@@ -428,20 +431,45 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
           let f = if isPressed then styleContextAddClass else styleContextRemoveClass
            in f styleContext "active"
 
+  pure wnd
 
-myGUI ∷ GUIContext → MVar GUIStateUpdate → IO ()
-myGUI ctx stateUpdateBus = do
+
+myGUI ∷ GUIContext → MVar GUIStateUpdate → (Window → IO ()) → IO ()
+myGUI ctx stateUpdateBus withMainWindow = do
   initGUI
   cssProvider ← getCssProvider
-  mainAppWindow ctx cssProvider stateUpdateBus
+  mainAppWindow ctx cssProvider stateUpdateBus >>= withMainWindow
   mainGUI
   appExitHandler ctx
+
+guiAlerts ∷ MVar AlertMessage → Window → IO ()
+guiAlerts alertsBus wnd = forever $
+  takeMVar alertsBus >>=
+    \case InfoAlert  msg → showDialog MessageInfo  msg
+          ErrorAlert msg → showDialog MessageError msg
+  where
+    showDialog ∷ MessageType → Text → IO ()
+    showDialog msgType msg = postGUIAsync $ do
+      w ← messageDialogNew (Just wnd) dialogFlags msgType ButtonsOk msg
+      _ ← dialogRun w
+      widgetDestroy w
+
+    dialogFlags = [DialogModal, DialogDestroyWithParent]
 
 runGUI ∷ GUIContext → IO GUIInterface
 runGUI ctx = do
   (stateUpdateBus ∷ MVar GUIStateUpdate) ← newEmptyMVar
-  void $ forkIO $ catchThreadFail "Main GUI" $ myGUI ctx stateUpdateBus
-  pure GUIInterface { guiStateUpdate = putMVar stateUpdateBus }
+  (alertsBus      ∷ MVar AlertMessage)   ← newEmptyMVar
+
+  let withMainWindow ∷ Window → IO ()
+      withMainWindow =
+        void ∘ forkIO ∘ catchThreadFail [MVarInfLockIsOkay] "GUI Alerts" ∘ guiAlerts alertsBus
+
+  _ ← forkIO $ catchThreadFail [] "Main GUI" $ myGUI ctx stateUpdateBus withMainWindow
+
+  pure GUIInterface { guiStateUpdate = putMVar stateUpdateBus
+                    , guiShowAlert   = putMVar alertsBus
+                    }
 
 
 getCssProvider ∷ IO CssProvider

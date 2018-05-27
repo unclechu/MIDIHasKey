@@ -2,25 +2,38 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module MIDIHasKey.Config
-     ( parseConfig
+     ( Config (Config)
+     , parseConfig
+     , readConfig
      ) where
 
-import Prelude
+import Prelude hiding (readFile)
 import Prelude.Unicode
 import GHC.Generics
 
 import Data.Default
-import Data.ByteString.Lazy hiding (pack, unpack, break)
+import Data.ByteString hiding (pack, unpack, break)
 import Data.String (fromString)
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Text (pack, unpack)
+import Data.Text.Encoding (encodeUtf8)
 import Text.InterpolatedString.QM
 import Data.Scientific (toRealFloat)
+import qualified Data.HashMap.Strict as HM
+
+import Control.Monad (unless)
 
 import Sound.MIDI.Message.Channel
+import Sound.MIDI.Message.Channel.Voice (normalVelocity)
+
+import System.Directory
+import System.FilePath
 
 -- local
 import Utils
@@ -28,10 +41,14 @@ import Types
 import Keys.Types
 
 
+-- "Major" breaks backward compatibility
+-- "Minor" increases when something new is added
+--         but config still could be used by older version of application
 data ConfigVersion = ConfigVersion Word Word deriving (Show, Eq, Ord)
-instance Default ConfigVersion where def = ConfigVersion 1 0
+instance Default ConfigVersion where def = ConfigVersion 1 0 -- Current version of config
 
 instance FromJSON ConfigVersion where
+  -- TODO FIXME proper parsing
   parseJSON (String str) = parseVer $ break (≡ '.') $ unpack str
     where parseVer (a, ('.' : b)) = pure $ ConfigVersion (read a) (read b)
           parseVer (_, b) =
@@ -142,6 +159,69 @@ data Config
 instance FromJSON Config
 instance ToJSON Config
 
+instance Default Config where
+  def
+    = Config
+    { configVersion  = def
+
+    , baseKey        = AKey
+    , basePitch      = toPitch 19 -- 20th in [1..128]
+    , octave         = fromBaseOctave baseOctave'
+    , baseOctave     = baseOctave'
+    , notesPerOctave = toNotesPerOctave 12
+
+    , channel        = minBound
+    , velocity       = normalVelocity
+    }
+    where
+    baseOctave'      = toBaseOctave' 4
+
 
 parseConfig ∷ ByteString → Either String Config
-parseConfig = undefined
+parseConfig src = do
+  -- Raw JSON value to parse just config version
+  (jsonConfig ∷ Value) <- eitherDecodeStrict' src
+
+  -- Parsing only config version from raw JSON, if config version is incompatible parsing of whole
+  -- structure may fail but we need to show proper fail message about incompatible config version so
+  -- that's why we parsing raw JSON first.
+  parsedConfVer@(ConfigVersion parsedMajor _) <-
+    case jsonConfig of
+         (Object (HM.lookup "configVersion" → Just x@(String _))) →
+           case fromJSON x of
+                Success x → Right x
+                Error msg → Left [qms| Parsing config version is failed with message: {msg} |]
+         _ → Left "Parsing config version is failed"
+
+  -- If major version of config is bigger than default version from current program it means we have
+  -- breaking changes and it could not be read by current version of the MIDIHasKey.
+  if implMajor < parsedMajor
+     then Left [qms| Version of config {parsedConfVer} is incompatible
+                     with currently implemented {implementedConfVer} |]
+
+     else -- Now we're parsing real `Config` after we ensured that version of config is compatible
+          eitherDecodeStrict' src
+
+  where implementedConfVer@(ConfigVersion implMajor _) = def
+
+
+readConfig ∷ IO (Either String Config)
+readConfig = do
+  -- Getting application config directory.
+  -- It creates new if it not exists.
+  -- E.g. ~/.config/MIDIHasKey
+  !dir ← do
+    dir ← getXdgDirectory XdgConfig appName
+    doesExist ← doesDirectoryExist dir
+    dir <$ unless doesExist (createDirectory dir)
+
+  -- Config file would be named as `config.MIDIHasKey`
+  let cfgFile = dir </> "config" <.> appName
+  doesConfigExist ← doesFileExist cfgFile
+
+  -- If config file doesn't exist just returning default config
+  if doesConfigExist
+     then readFile cfgFile <&> parseConfig
+     else pure $ Right def
+
+  where appName = "MIDIHasKey"

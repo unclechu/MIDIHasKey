@@ -185,10 +185,10 @@ runEventHandler ctx = do
       updateState (updateStateMiddleware → (• dupe) → f) =
         atomicModifyIORef' appStateRef f >>= onNewAppState ctx
 
-  (interface <$) $ forkIO $ catchThreadFail "Event Handler" $ forever $ do
+  (interface <$) $ forkIO $ catchThreadFail [] "Event Handler" $ forever $ do
     let notifyListener ev = do
           !s ← readIORef appStateRef
-          forkIO $ catchThreadFail "Events listener notifier" $ eventsListener ctx ev s
+          forkIO $ catchThreadFail [] "Events listener notifier" $ eventsListener ctx ev s
 
     takeMVar bus >>= (handle &&& notifyListener) • uncurry (>>)
 

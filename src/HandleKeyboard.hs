@@ -62,5 +62,5 @@ runKeyboardHandling ctx =
 
         runReader ∷ FilePath → DeviceReader → IO ()
         runReader devPath devReader =
-          void $ forkIO $ catchThreadFail (readerThreadName devPath) $ forever $
+          void $ forkIO $ catchThreadFail [] (readerThreadName devPath) $ forever $
             devReader >>= uncurry (handleKeyboardKeyEvent ctx)
