@@ -5,6 +5,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ExplicitNamespaces #-}
 
 module MIDIHasKey.Config
      ( Config (Config)
@@ -18,14 +19,15 @@ import GHC.Generics
 
 import Data.Default
 import Data.ByteString hiding (pack, unpack, break)
-import Data.String (fromString)
+import Data.String (type IsString, fromString)
 import Data.Aeson
 import Data.Aeson.Types
-import Data.Text (pack, unpack)
+import Data.Text (type Text, pack, unpack)
 import Data.Text.Encoding (encodeUtf8)
 import Text.InterpolatedString.QM
 import Data.Scientific (toRealFloat)
 import qualified Data.HashMap.Strict as HM
+import Data.Attoparsec.Text
 
 import Control.Monad (unless)
 
@@ -47,17 +49,22 @@ import Keys.Types
 data ConfigVersion = ConfigVersion Word Word deriving (Show, Eq, Ord)
 instance Default ConfigVersion where def = ConfigVersion 1 0 -- Current version of config
 
+showConfigVersionAsNumber ∷ (Monoid α, IsString α) ⇒ ConfigVersion → α
+showConfigVersionAsNumber (ConfigVersion major minor) = [qm| {major}.{minor} |]
+
 instance FromJSON ConfigVersion where
-  -- TODO FIXME proper parsing
-  parseJSON (String str) = parseVer $ break (≡ '.') $ unpack str
-    where parseVer (a, ('.' : b)) = pure $ ConfigVersion (read a) (read b)
-          parseVer (_, b) =
-            error [qm| Unexpected value of minor version of ConfigVersion: "{b}" |]
+  parseJSON x@(String str) =
+    case parser `parseOnly` str of
+         Right a → pure a
+         Left  _ → fail [qms| ConfigVersion supposed to be represented as "N.N" (string)
+                              where "N" is a decimal unsigned number, got this: "{str}" |]
+
+    where parser = ConfigVersion <$> decimal <* char '.' <*> decimal
 
   parseJSON x = typeMismatch "ConfigVersion" x
 
 instance ToJSON ConfigVersion where
-  toJSON (ConfigVersion major minor) = String [qm| {major}.{minor} |]
+  toJSON = String ∘ showConfigVersionAsNumber
 
 
 instance FromJSON RowKey where
@@ -196,11 +203,16 @@ parseConfig src = do
   -- If major version of config is bigger than default version from current program it means we have
   -- breaking changes and it could not be read by current version of the MIDIHasKey.
   if implMajor < parsedMajor
-     then Left [qms| Version of config {parsedConfVer} is incompatible
-                     with currently implemented {implementedConfVer} |]
+     then Left [qms| Version of config {showConfigVersionAsNumber parsedConfVer ∷ Text} is
+                     incompatible with currently implemented
+                     {showConfigVersionAsNumber implementedConfVer ∷ Text} |]
 
-     else -- Now we're parsing real `Config` after we ensured that version of config is compatible
-          eitherDecodeStrict' src
+     else -- Now we're parsing real `Config` after we ensured that version of config is compatible.
+          -- Parsing `Config` from already parsed `Value` instead of just parsing again from source
+          -- `ByteString`.
+          case fromJSON jsonConfig of
+               Success x → Right x
+               Error msg → Left msg
 
   where implementedConfVer@(ConfigVersion implMajor _) = def
 
