@@ -38,6 +38,9 @@ dependencies:
   - transformers
   - unordered-containers
 
+ghc-options:
+  - -O2
+
 library:
   source-dirs: src
 
@@ -46,7 +49,6 @@ executables:
     main: Main.hs
     source-dirs: app
     ghc-options:
-      - -O2
       - -threaded
       - -rtsopts
       - -with-rtsopts=-N
