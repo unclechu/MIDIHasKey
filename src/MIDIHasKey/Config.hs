@@ -8,7 +8,7 @@
 {-# LANGUAGE ExplicitNamespaces #-}
 
 module MIDIHasKey.Config
-     ( Config (Config)
+     ( Config (..)
      , parseConfig
      , readConfig
      ) where
@@ -181,7 +181,7 @@ instance Default Config where
     , velocity       = normalVelocity
     }
     where
-    baseOctave'      = toBaseOctave' 4
+      baseOctave' = toBaseOctave' 4
 
 
 parseConfig ∷ ByteString → Either String Config

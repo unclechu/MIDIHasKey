@@ -4,6 +4,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 import Prelude.Unicode
 
@@ -77,6 +78,7 @@ main = do
      in runEventHandler EventHandlerContext { sendToMIDIPlayer = sendToMP
                                             , eventsListener   = evListener
                                             , onNewAppState    = const $ pure () -- TODO
+                                            , initialConfig    = config
                                             }
 
   let sendToEventHandler = handleEvent evIface
@@ -91,16 +93,16 @@ main = do
                                                              }
 
   guiInitValues ← getAppState evIface <&> \appState →
-    GUIState { guiStateBaseKey        = baseKey        appState
-             , guiStateBasePitch      = basePitch      appState
-             , guiStateOctave         = octave         appState
-             , guiStateBaseOctave     = baseOctave     appState
-             , guiStateNotesPerOctave = notesPerOctave appState
+    GUIState { guiStateBaseKey        = baseKey        (appState ∷ AppState)
+             , guiStateBasePitch      = basePitch      (appState ∷ AppState)
+             , guiStateOctave         = octave         (appState ∷ AppState)
+             , guiStateBaseOctave     = baseOctave     (appState ∷ AppState)
+             , guiStateNotesPerOctave = notesPerOctave (appState ∷ AppState)
 
-             , guiStatePitchMapping   = pitchMap       appState
+             , guiStatePitchMapping   = pitchMap       (appState ∷ AppState)
 
-             , guiStateChannel        = channel        appState
-             , guiStateVelocity       = velocity       appState
+             , guiStateChannel        = channel        (appState ∷ AppState)
+             , guiStateVelocity       = velocity       (appState ∷ AppState)
              }
 
   guiIface ←

@@ -3,6 +3,7 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 -- A module that transforms some events such as key press/release to MIDI events.
 -- It also stores some application state such as current base note, current channel, etc., and
@@ -20,7 +21,6 @@ import Prelude.Unicode
 
 import Data.IORef
 import Data.Maybe
-import Data.Default
 import Data.List (elemIndex)
 import Data.HashMap.Strict hiding (filter)
 import Text.InterpolatedString.QM
@@ -39,6 +39,7 @@ import Types
 import Keys.Types
 import Keys.Specific.EventHandler
 import MIDIPlayer
+import MIDIHasKey.Config
 
 
 data EventHandlerContext
@@ -46,6 +47,7 @@ data EventHandlerContext
   { sendToMIDIPlayer ∷ MIDIPlayerSender
   , eventsListener   ∷ EventsListener
   , onNewAppState    ∷ AppState → IO ()
+  , initialConfig    ∷ Config
   }
 
 data EventHandlerInterface
@@ -109,33 +111,31 @@ data StoredEvent
   deriving (Show, Eq)
 
 
-instance Default AppState where
-  def
-    = AppState
-    { baseKey        = baseKey'
-    , basePitch      = basePitch'
-    , channel        = minBound
-    , velocity       = normalVelocity
-    , octave         = octave'
-    , baseOctave     = baseOctave'
-    , notesPerOctave = notesPerOctave'
-    , pitchMap       = getPitchMapping baseKey' basePitch'
-                                       octave' baseOctave'
-                                       notesPerOctave'
-    , storedEvents   = empty
-    }
-    where
-    baseKey'         = AKey
-    basePitch'       = toPitch 19 -- 20th in [1..128]
-    octave'          = fromBaseOctave baseOctave'
-    baseOctave'      = toBaseOctave' 4
-    notesPerOctave'  = toNotesPerOctave 12
-
-
 runEventHandler ∷ EventHandlerContext → IO EventHandlerInterface
 runEventHandler ctx = do
-  (bus         ∷ EventHandlerBus) ← newEmptyMVar
-  (appStateRef ∷ IORef AppState)  ← newIORef def
+  (bus ∷ EventHandlerBus) ← newEmptyMVar
+
+  (appStateRef ∷ IORef AppState) ←
+    let
+      x = initialConfig ctx
+
+      appState
+        = AppState
+        { baseKey        = baseKey        (x ∷ Config)
+        , basePitch      = basePitch      (x ∷ Config)
+        , octave         = octave         (x ∷ Config)
+        , baseOctave     = baseOctave     (x ∷ Config)
+        , notesPerOctave = notesPerOctave (x ∷ Config)
+        , channel        = channel        (x ∷ Config)
+        , velocity       = velocity       (x ∷ Config)
+
+        , pitchMap       = getPitchMapping (baseKey (x ∷ Config)) (basePitch (x ∷ Config))
+                                           (octave (x ∷ Config)) (baseOctave (x ∷ Config))
+                                           (notesPerOctave (x ∷ Config))
+        , storedEvents   = empty
+        }
+    in
+      newIORef appState
 
   let interface
         = EventHandlerInterface
@@ -148,8 +148,8 @@ runEventHandler ctx = do
 
         case lookup k $ pitchMap appState of
 
-             Just p → do let ch     = channel appState
-                             vel    = velocity appState
+             Just p → do let ch     = channel  (appState ∷ AppState)
+                             vel    = velocity (appState ∷ AppState)
                              stored = StoredNoteOn ch p vel
 
                          sendToMIDIPlayer ctx $ NoteOn ch p vel
@@ -169,8 +169,9 @@ runEventHandler ctx = do
 
         pure $
           case lookup k $ pitchMap appState of
-               Just x  → sendToMIDIPlayer ctx $ NoteOff (channel appState) x $ velocity appState
                Nothing → pure ()
+               Just x  → sendToMIDIPlayer ctx
+                       $ NoteOff (channel (appState ∷ AppState)) x $ velocity (appState ∷ AppState)
 
       handle (NewBaseKey k)        = updateState $ \s → s { baseKey        = k }
       handle (NewBasePitch p)      = updateState $ \s → s { basePitch      = p }
@@ -195,22 +196,22 @@ runEventHandler ctx = do
   where updateStateMiddleware ∷ (AppState → AppState) → AppState → AppState
         updateStateMiddleware f oldState =
 
-          if baseKey        newState ≠ baseKey        oldState
-          || basePitch      newState ≠ basePitch      oldState
-          || octave         newState ≠ octave         oldState
-          || baseOctave     newState ≠ baseOctave     oldState
-          || notesPerOctave newState ≠ notesPerOctave oldState
+          if baseKey        (newState ∷ AppState) ≠ baseKey        (oldState ∷ AppState)
+          || basePitch      (newState ∷ AppState) ≠ basePitch      (oldState ∷ AppState)
+          || octave         (newState ∷ AppState) ≠ octave         (oldState ∷ AppState)
+          || baseOctave     (newState ∷ AppState) ≠ baseOctave     (oldState ∷ AppState)
+          || notesPerOctave (newState ∷ AppState) ≠ notesPerOctave (oldState ∷ AppState)
              then newState { pitchMap = getPitchMapping baseKey' basePitch'
                                                         octave' baseOctave'
                                                         notesPerOctave' }
              else newState
 
           where newState        = f oldState
-                baseKey'        = baseKey        newState
-                basePitch'      = basePitch      newState
-                octave'         = octave         newState
-                baseOctave'     = baseOctave     newState
-                notesPerOctave' = notesPerOctave newState
+                baseKey'        = baseKey        (newState ∷ AppState)
+                basePitch'      = basePitch      (newState ∷ AppState)
+                octave'         = octave         (newState ∷ AppState)
+                baseOctave'     = baseOctave     (newState ∷ AppState)
+                notesPerOctave' = notesPerOctave (newState ∷ AppState)
 
 
 getPitchMapping ∷ RowKey → Pitch → Octave → BaseOctave → NotesPerOctave → HashMap RowKey Pitch
