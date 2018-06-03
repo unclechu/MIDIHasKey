@@ -426,10 +426,11 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
         modifyIORef guiStateRef $ \s → s { guiStateVelocity = vel }
 
       KeyButtonState rowKey isPressed →
-        fromMaybe (pure ()) $ rowKey `lookup` buttonsMap <&> \(w, _) → postGUIAsync $ do
-          styleContext ← widgetGetStyleContext w
-          let f = if isPressed then styleContextAddClass else styleContextRemoveClass
-           in f styleContext "active"
+        let
+          stateClass       = if isPressed then styleContextAddClass else styleContextRemoveClass
+          updateClassState = widgetGetStyleContext >=> flip stateClass "active"
+        in
+          maybeMUnit id $ rowKey `lookup` buttonsMap <&> fst • updateClassState • postGUIAsync
 
   pure wnd
 

@@ -47,11 +47,6 @@ type 𝔹 = Bool
 nat2MidiKey ∷ KnownNat α ⇒ Proxy α → Pitch
 nat2MidiKey = toPitch ∘ fromInteger ∘ natVal
 
-superscript ∷ Char → Char
-superscript = \case '1' → '¹' ; '2' → '²' ; '3' → '³' ; '4' → '⁴' ; '5' → '⁵'
-                    '6' → '⁶' ; '7' → '⁷' ; '8' → '⁸' ; '9' → '⁹' ; '0' → '⁰'
-                    x → x
-
 
 -- Left-to-right composition, just like (>=>) for monads.
 (•) ∷ (α → β) → (β → γ) → (α → γ)
