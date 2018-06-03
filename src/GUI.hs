@@ -427,10 +427,11 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
       KeyButtonState rowKey isPressed →
         let
-          stateClass       = if isPressed then styleContextAddClass else styleContextRemoveClass
-          updateClassState = widgetGetStyleContext >=> flip stateClass "active"
+          classStateOperation = if isPressed then styleContextAddClass else styleContextRemoveClass
+          updateClassState    = widgetGetStyleContext >=> flip classStateOperation "active"
+          handleButton        = postGUIAsync ∘ updateClassState ∘ fst
         in
-          maybeMUnit id $ rowKey `lookup` buttonsMap <&> fst • updateClassState • postGUIAsync
+          maybeMUnit id $ handleButton <$> rowKey `lookup` buttonsMap
 
   pure wnd
 
