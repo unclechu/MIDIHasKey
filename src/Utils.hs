@@ -78,6 +78,12 @@ infixr 5 <&!>
 {-# INLINE (⋄) #-}
 infixr 6 ⋄
 
+-- Better multiplication operator (better alternative to `(⋅)`)
+(×) ∷ Num α ⇒ α → α → α
+(×) = (*)
+{-# INLINE (×) #-}
+infixl 7 ×
+
 
 data CatchThreadFailFlag
    = MVarInfLockIsOkay

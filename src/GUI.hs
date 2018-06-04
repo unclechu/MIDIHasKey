@@ -3,6 +3,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE BangPatterns #-}
 
 module GUI
      ( runGUI
@@ -21,17 +22,14 @@ import Data.IORef
 import Data.Proxy
 import Data.Maybe
 import Data.HashMap.Strict
-import Data.Text (type Text)
 import Text.InterpolatedString.QM
 
+import Control.Arrow
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent
-import Control.Concurrent.MVar
 
-import System.Glib.UTFString
 import Graphics.UI.Gtk
-import Graphics.UI.Gtk.General.CssProvider
 import Graphics.UI.Gtk.General.StyleContext
 import Sound.MIDI.Message.Channel
 
@@ -40,65 +38,15 @@ import Types
 import Utils
 import Keys.Types
 import Keys.Specific.GUI
-
-
-data GUIContext
-  = GUIContext
-  { initialValues            ∷ GUIState
-
-  , appExitHandler           ∷ IO ()
-  , panicButtonHandler       ∷ IO ()
-
-  , setBaseKeyHandler        ∷ RowKey → IO ()
-  , setBasePitchHandler      ∷ Pitch → IO ()
-  , setOctaveHandler         ∷ Octave → IO ()
-  , setBaseOctaveHandler     ∷ BaseOctave → IO ()
-  , setNotesPerOctaveHandler ∷ NotesPerOctave → IO ()
-
-  , selectChannelHandler     ∷ Channel → IO ()
-
-  , noteButtonHandler        ∷ RowKey → 𝔹 → IO ()
-  }
-
-data GUIState
-  = GUIState
-  { guiStateBaseKey        ∷ RowKey
-  , guiStateBasePitch      ∷ Pitch
-  , guiStateOctave         ∷ Octave
-  , guiStateBaseOctave     ∷ BaseOctave
-  , guiStateNotesPerOctave ∷ NotesPerOctave
-
-  , guiStatePitchMapping   ∷ HashMap RowKey Pitch
-
-  , guiStateChannel        ∷ Channel
-  , guiStateVelocity       ∷ Velocity
-  }
-
-data GUIInterface
-  = GUIInterface
-  { guiStateUpdate ∷ GUIStateUpdate → IO ()
-  , guiShowAlert   ∷ AlertMessage → IO ()
-  }
-
-data GUIStateUpdate
-  = SetBaseKey        RowKey
-  | SetBasePitch      Pitch
-  | SetOctave         Octave
-  | SetBaseOctave     BaseOctave
-  | SetNotesPerOctave NotesPerOctave
-
-  | SetPitchMapping   (HashMap RowKey Pitch)
-
-  | SetChannel        Channel
-  | SetVelocity       Velocity
-
-  | KeyButtonState    RowKey 𝔹
-  deriving (Show, Eq)
+import GUI.Types
+import GUI.Utils
+import GUI.Alerts
 
 
 mainAppWindow ∷ GUIContext → CssProvider → MVar GUIStateUpdate → IO Window
 mainAppWindow ctx cssProvider stateUpdateBus = do
-  guiStateRef ← newIORef $ initialValues ctx
+  guiStateRef ← newIORef $ initialState ctx
+  lastSavedGUIStateRef ← newIORef $ initialState ctx
 
   wnd ← do
     wnd ← windowNew
@@ -165,7 +113,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
             onRelease = noteButtonHandler ctx rowKey False
 
             (btnLabel, btnClass) =
-              let v = initialValues ctx in
+              let v = initialState ctx in
               getButtonLabelAndClass (guiStateBasePitch v)
                                      (guiStatePitchMapping v)
                                      (guiStateOctave v)
@@ -187,7 +135,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
     on btn buttonActivated $ panicButtonHandler ctx
     pure btn
 
-  (channelEl, channelUpdater) ← do
+  (channelEl, (channelUpdater ∷ Channel → IO ())) ← do
     menu ← do
       menu ← menuNew
       set menu [menuTitle := "Select MIDI channel"]
@@ -202,14 +150,14 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     label ← labelNew (Nothing ∷ Maybe String)
     let getLabel ch = [qm| Channel: <b>{succ $ fromChannel ch}</b> |] ∷ String
-    labelSetMarkup label $ getLabel $ guiStateChannel $ initialValues ctx
+    labelSetMarkup label $ getLabel $ guiStateChannel $ initialState ctx
 
     btn ← buttonNew
     containerAdd btn label
     on btn buttonActivated $ menuPopup menu Nothing
     pure (btn, getLabel • labelSetMarkup label)
 
-  (baseKeyEl, baseKeyUpdater) ← do
+  (baseKeyEl, (baseKeyUpdater ∷ RowKey → IO ())) ← do
     menu ← do
       menu ← menuNew
       set menu [menuTitle := "Select base key"]
@@ -224,15 +172,15 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     label ← labelNew (Nothing ∷ Maybe String)
     let getLabel rowKey = [qm| Base key: <b>{keyLabelMap ! rowKey}</b> |] ∷ String
-    labelSetMarkup label $ getLabel $ guiStateBaseKey $ initialValues ctx
+    labelSetMarkup label $ getLabel $ guiStateBaseKey $ initialState ctx
 
     btn ← buttonNew
     containerAdd btn label
     on btn buttonActivated $ menuPopup menu Nothing
     pure (btn, getLabel • labelSetMarkup label)
 
-  (basePitchEl, basePitchUpdater) ← do
-    let val = fromIntegral $ succ $ fromPitch $ guiStateBasePitch $ initialValues ctx
+  (basePitchEl, (basePitchUpdater ∷ Pitch → IO ())) ← do
+    let val = fromIntegral $ succ $ fromPitch $ guiStateBasePitch $ initialState ctx
         minPitch = succ $ fromIntegral $ fromPitch minBound
         maxPitch = succ $ fromIntegral $ fromPitch maxBound
 
@@ -252,8 +200,8 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ succ ∘ fromPitch)
 
-  (octaveEl, octaveUpdater) ← do
-    let val = fromIntegral $ fromOctave $ guiStateOctave $ initialValues ctx
+  (octaveEl, (octaveUpdater ∷ Octave → IO ())) ← do
+    let val = fromIntegral $ fromOctave $ guiStateOctave $ initialState ctx
         minOctave = fromIntegral $ fromOctave minBound
         maxOctave = fromIntegral $ fromOctave maxBound
 
@@ -273,8 +221,8 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ fromOctave)
 
-  (baseOctaveEl, baseOctaveUpdater) ← do
-    let val = fromIntegral $ fromBaseOctave' $ guiStateBaseOctave $ initialValues ctx
+  (baseOctaveEl, (baseOctaveUpdater ∷ BaseOctave → IO ())) ← do
+    let val = fromIntegral $ fromBaseOctave' $ guiStateBaseOctave $ initialState ctx
         minOctave = fromIntegral $ fromOctave minBound
         maxOctave = fromIntegral $ fromOctave maxBound
 
@@ -294,8 +242,8 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ fromBaseOctave')
 
-  (notesPerOctaveEl, notesPerOctaveUpdater) ← do
-    let val = fromIntegral $ fromNotesPerOctave $ guiStateNotesPerOctave $ initialValues ctx
+  (notesPerOctaveEl, (notesPerOctaveUpdater ∷ NotesPerOctave → IO ())) ← do
+    let val = fromIntegral $ fromNotesPerOctave $ guiStateNotesPerOctave $ initialState ctx
         minV = fromIntegral $ fromNotesPerOctave minBound
         maxV = fromIntegral $ fromNotesPerOctave maxBound
 
@@ -315,6 +263,13 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     pure (box, spinButtonSetValue btn ∘ fromIntegral ∘ fromNotesPerOctave)
 
+  (saveConfigEl, (saveConfigSetSensitive ∷ Bool → IO ())) ← do
+    btn ← buttonNewWithLabel "💾"
+    widgetSetSensitive btn False
+    widgetSetTooltipText btn $ Just "Save application state"
+    on btn buttonActivated $ saveConfigButtonHandler ctx
+    pure (btn, widgetSetSensitive btn)
+
   topButtons ← do
     box ← hBoxNew False 5
     containerAdd box panicEl
@@ -329,6 +284,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
     containerAdd box baseOctaveEl
     containerAdd box notesPerOctaveEl
     containerAdd box octaveEl
+    containerAdd box saveConfigEl
     pure box
 
   keyRowsBox ← do
@@ -340,10 +296,19 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
             , widgetMarginBottom := 8
             ]
 
-    mapM_ (containerAdd box) =<<
-      forM (fmap (snd • fst) <$> reverse allButtonsRows)
-           (\keysButtons → do c ← hBoxNew False 5 ; c <$ mapM_ (containerAdd c) keysButtons)
+    let extractButtonWidget (_, (btn, _)) = btn ∷ Button
 
+        -- First `fmap` for row of rows list.
+        -- Second nested `fmap` for key of row keys list.
+        allButtonsWidgets ∷ [[Button]]
+        allButtonsWidgets = fmap extractButtonWidget <$> reverse allButtonsRows
+
+        buildRow ∷ [Button] → IO HBox
+        buildRow keysButtons = do
+          c ← hBoxNew False 5
+          c <$ mapM_ (containerAdd c) keysButtons
+
+    mapM buildRow allButtonsWidgets >>= mapM_ (containerAdd box)
     pure box
 
   keyboardFrame ← do
@@ -393,37 +358,54 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
                                         (guiStateOctave s)    (guiStateNotesPerOctave s)
 
   void $ forkIO $ catchThreadFail [] "GUI listener for GUI state updates" $ forever $
+
+    let -- Returns monad which supposed to be run in GUI thread (see `postGUIAsync`).
+        -- Strictness `(<$!>)` helps to calculate result of comparison right now and apply it to a
+        -- monad which will be run later in GUI thread.
+        updateSaveBtnAvailability ∷ IO (IO ())
+        updateSaveBtnAvailability = saveConfigSetSensitive <$!>
+          ((≠) <$> readIORef guiStateRef <*> readIORef lastSavedGUIStateRef)
+
+        in
+
     takeMVar stateUpdateBus >>= \case
       SetBaseKey k → do
         modifyIORef guiStateRef $ \s → s { guiStateBaseKey = k }
-        postGUIAsync $ baseKeyUpdater k >> updateButtons
+        postGUIAsync =<< (baseKeyUpdater k >> updateButtons >>) <$!> updateSaveBtnAvailability
 
       SetBasePitch p → do
         modifyIORef guiStateRef $ \s → s { guiStateBasePitch = p }
-        postGUIAsync $ basePitchUpdater p >> updateButtons
+        postGUIAsync =<< (basePitchUpdater p >> updateButtons >>) <$!> updateSaveBtnAvailability
 
       SetOctave o → do
         modifyIORef guiStateRef $ \s → s { guiStateOctave = o }
-        postGUIAsync $ octaveUpdater o >> updateButtons
+        postGUIAsync =<< (octaveUpdater o >> updateButtons >>) <$!> updateSaveBtnAvailability
 
       SetBaseOctave o → do
         modifyIORef guiStateRef $ \s → s { guiStateBaseOctave = o }
-        postGUIAsync $ baseOctaveUpdater o >> updateButtons
+        postGUIAsync =<< (baseOctaveUpdater o >> updateButtons >>) <$!> updateSaveBtnAvailability
 
       SetNotesPerOctave n → do
         modifyIORef guiStateRef $ \s → s { guiStateNotesPerOctave = n }
-        postGUIAsync $ notesPerOctaveUpdater n >> updateButtons
+
+        postGUIAsync =<<
+          (notesPerOctaveUpdater n >> updateButtons >>) <$!> updateSaveBtnAvailability
 
       SetPitchMapping mapping → do
         modifyIORef guiStateRef $ \s → s { guiStatePitchMapping = mapping }
-        postGUIAsync updateButtons
+        postGUIAsync =<< (updateButtons >>) <$!> updateSaveBtnAvailability
 
       SetChannel ch → do
         modifyIORef guiStateRef $ \s → s { guiStateChannel = ch }
-        postGUIAsync $ channelUpdater ch
+        postGUIAsync =<< (channelUpdater ch >>) <$!> updateSaveBtnAvailability
 
-      SetVelocity vel →
+      SetVelocity vel → do
         modifyIORef guiStateRef $ \s → s { guiStateVelocity = vel }
+        postGUIAsync =<< updateSaveBtnAvailability
+
+      NewLastSavedState newGUIState → do
+        writeIORef lastSavedGUIStateRef newGUIState
+        postGUIAsync =<< updateSaveBtnAvailability
 
       KeyButtonState rowKey isPressed →
         let
@@ -444,20 +426,6 @@ myGUI ctx stateUpdateBus withMainWindow = do
   mainGUI
   appExitHandler ctx
 
-guiAlerts ∷ MVar AlertMessage → Window → IO ()
-guiAlerts alertsBus wnd = forever $
-  takeMVar alertsBus >>=
-    \case InfoAlert  msg → showDialog MessageInfo  msg
-          ErrorAlert msg → showDialog MessageError msg
-  where
-    showDialog ∷ MessageType → Text → IO ()
-    showDialog msgType msg = postGUIAsync $ do
-      w ← messageDialogNew (Just wnd) dialogFlags msgType ButtonsOk msg
-      _ ← dialogRun w
-      widgetDestroy w
-
-    dialogFlags = [DialogModal, DialogDestroyWithParent]
-
 runGUI ∷ GUIContext → IO GUIInterface
 runGUI ctx = do
   (stateUpdateBus ∷ MVar GUIStateUpdate) ← newEmptyMVar
@@ -472,24 +440,3 @@ runGUI ctx = do
   pure GUIInterface { guiStateUpdate = putMVar stateUpdateBus
                     , guiShowAlert   = putMVar alertsBus
                     }
-
-
-getCssProvider ∷ IO CssProvider
-getCssProvider = do
-  cssProvider ← cssProviderNew
-  cssProvider <$ cssProviderLoadFromPath cssProvider "./gtk-custom.css"
-
--- Priority range is [1..800]. See also:
--- https://www.stackage.org/haddock/lts-9.21/gtk3-0.14.8/src/Graphics.UI.Gtk.General.StyleContext.html#styleContextAddProvider
-maxCssPriority ∷ Int
-maxCssPriority = 800
-
-bindCssProvider ∷ WidgetClass widget ⇒ CssProvider → widget → IO StyleContext
-bindCssProvider cssProvider w = do
-  styleContext ← widgetGetStyleContext w
-  styleContext <$ styleContextAddProvider styleContext cssProvider maxCssPriority
-
-withCssClass ∷ (WidgetClass w, GlibString s) ⇒ CssProvider → s → w → IO StyleContext
-withCssClass cssProvider className w = do
-  styleContext ← bindCssProvider cssProvider w
-  styleContext <$ styleContextAddClass styleContext className

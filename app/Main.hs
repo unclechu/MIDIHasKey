@@ -46,7 +46,9 @@ main = do
 
   evIface ← runMIDIPlayer >>= \sendToMP →
 
-    let evListener (KeyPress   key) _ = guiUpdate $ KeyButtonState key True
+    let evListener ∷ EventToHandle → AppState → IO ()
+
+        evListener (KeyPress   key) _ = guiUpdate $ KeyButtonState key True
         evListener (KeyRelease key) _ = guiUpdate $ KeyButtonState key False
 
         evListener (NewBaseKey k) s = do
@@ -71,7 +73,9 @@ main = do
 
         evListener (NewChannel ch)  _ = guiUpdate $ SetChannel ch
         evListener (NewVelocity v)  _ = guiUpdate $ SetVelocity v
-        evListener _                _ = pure ()
+        evListener SaveConfig       s = guiUpdate $ NewLastSavedState $ getGUIState s
+
+        evListener _ _ = pure ()
 
         guiUpdate = putMVar guiStateUpdateBus
 
@@ -92,23 +96,13 @@ main = do
                                                              , handleKeyboardKeyEvent = keyHandler
                                                              }
 
-  guiInitValues ← getAppState evIface <&> \appState →
-    GUIState { guiStateBaseKey        = baseKey        (appState ∷ AppState)
-             , guiStateBasePitch      = basePitch      (appState ∷ AppState)
-             , guiStateOctave         = octave         (appState ∷ AppState)
-             , guiStateBaseOctave     = baseOctave     (appState ∷ AppState)
-             , guiStateNotesPerOctave = notesPerOctave (appState ∷ AppState)
-
-             , guiStatePitchMapping   = pitchMap       (appState ∷ AppState)
-
-             , guiStateChannel        = channel        (appState ∷ AppState)
-             , guiStateVelocity       = velocity       (appState ∷ AppState)
-             }
+  guiInitValues ← getAppState evIface <&> getGUIState
 
   guiIface ←
-    runGUI GUIContext { initialValues            = guiInitValues
+    runGUI GUIContext { initialState             = guiInitValues
                       , appExitHandler           = void $ forkIO $ putMVar appExitBus ()
                       , panicButtonHandler       = void $ forkIO $ sendToEventHandler PanicEvent
+                      , saveConfigButtonHandler  = void $ forkIO $ sendToEventHandler SaveConfig
 
                       , setBaseKeyHandler        = void ∘ forkIO ∘ sendToEventHandler ∘ NewBaseKey
                       , setBasePitchHandler      = void ∘ forkIO ∘ sendToEventHandler ∘ NewBasePitch
@@ -135,3 +129,19 @@ main = do
 
   takeMVar appExitBus
   hPutStrLn stderr "Application is terminating…"
+
+
+getGUIState ∷ AppState → GUIState
+getGUIState appState
+  = GUIState
+  { guiStateBaseKey        = baseKey        (appState ∷ AppState)
+  , guiStateBasePitch      = basePitch      (appState ∷ AppState)
+  , guiStateOctave         = octave         (appState ∷ AppState)
+  , guiStateBaseOctave     = baseOctave     (appState ∷ AppState)
+  , guiStateNotesPerOctave = notesPerOctave (appState ∷ AppState)
+
+  , guiStatePitchMapping   = pitchMap       (appState ∷ AppState)
+
+  , guiStateChannel        = channel        (appState ∷ AppState)
+  , guiStateVelocity       = velocity       (appState ∷ AppState)
+  }

@@ -19,6 +19,7 @@ module EventHandler
 import Prelude hiding (lookup)
 import Prelude.Unicode
 
+import Data.Default (def)
 import Data.IORef
 import Data.Maybe
 import Data.List (elemIndex)
@@ -43,60 +44,61 @@ import MIDIHasKey.Config
 
 
 data EventHandlerContext
-  = EventHandlerContext
-  { sendToMIDIPlayer ∷ MIDIPlayerSender
-  , eventsListener   ∷ EventsListener
-  , onNewAppState    ∷ AppState → IO ()
-  , initialConfig    ∷ Config
-  }
+   = EventHandlerContext
+   { sendToMIDIPlayer ∷ MIDIPlayerSender
+   , eventsListener   ∷ EventsListener
+   , onNewAppState    ∷ AppState → IO ()
+   , initialConfig    ∷ Config
+   }
 
 data EventHandlerInterface
-  = EventHandlerInterface
-  { handleEvent ∷ EventHandlerSender
-  , getAppState ∷ IO AppState
-  }
+   = EventHandlerInterface
+   { handleEvent ∷ EventHandlerSender
+   , getAppState ∷ IO AppState
+   }
 
 
 data AppState
-  = AppState
-  { baseKey        ∷ RowKey -- A key of the keyboard which would be a set point
-  , basePitch      ∷ Pitch  -- A pitch that will be associated with `baseKey`
-  , octave         ∷ Octave -- Current octave, it's not supposed to mean a real octave
-                            -- but a shift from `basePitch` by `notesPerOctave`
-                            -- relatively to the `baseOctave`.
-  , baseOctave     ∷ BaseOctave -- `octave` value that would be `basePitch` on `baseKey`
-                                -- that means when `octave` equals `baseOctave` `basePitch`
-                                -- wouldn't be shifted at all.
-  , notesPerOctave ∷ NotesPerOctave -- Indicates how many notes will be shifted by one `octave`,
-                                    -- it does't mean anything but this shift step.
-  , pitchMap       ∷ HashMap RowKey Pitch -- Current mapping of pitches by keys,
-                                          -- it changes when you shift `octave`, `basePitch`, etc.
-  , storedEvents   ∷ HashMap RowKey StoredEvent -- Mapping of currently triggered events such as
-                                                -- note-on to trigger proper note-off in case
-                                                -- something was shifted (`octave`, `basePitch`,
-                                                -- `channel`, etc.) while some note isn't
-                                                -- released yet.
-  , channel        ∷ Channel  -- MIDI channel
-  , velocity       ∷ Velocity -- MIDI velocity for the tiggered notes
-  } deriving (Show, Eq)
+   = AppState
+   { baseKey        ∷ RowKey -- A key of the keyboard which would be a set point
+   , basePitch      ∷ Pitch  -- A pitch that will be associated with `baseKey`
+   , octave         ∷ Octave -- Current octave, it's not supposed to mean a real octave
+                             -- but a shift from `basePitch` by `notesPerOctave`
+                             -- relatively to the `baseOctave`.
+   , baseOctave     ∷ BaseOctave -- `octave` value that would be `basePitch` on `baseKey`
+                                 -- that means when `octave` equals `baseOctave` `basePitch`
+                                 -- wouldn't be shifted at all.
+   , notesPerOctave ∷ NotesPerOctave -- Indicates how many notes will be shifted by one `octave`,
+                                     -- it does't mean anything but this shift step.
+   , pitchMap       ∷ HashMap RowKey Pitch -- Current mapping of pitches by keys,
+                                           -- it changes when you shift `octave`, `basePitch`, etc.
+   , storedEvents   ∷ HashMap RowKey StoredEvent -- Mapping of currently triggered events such as
+                                                 -- note-on to trigger proper note-off in case
+                                                 -- something was shifted (`octave`, `basePitch`,
+                                                 -- `channel`, etc.) while some note isn't
+                                                 -- released yet.
+   , channel        ∷ Channel  -- MIDI channel
+   , velocity       ∷ Velocity -- MIDI velocity for the tiggered notes
+   } deriving (Show, Eq)
 
 data EventToHandle
-  = KeyPress   RowKey
-  | KeyRelease RowKey
+   = KeyPress   RowKey
+   | KeyRelease RowKey
 
-  -- Constructors of new values that shifts key mapping
-  | NewBaseKey        RowKey
-  | NewBasePitch      Pitch
-  | NewOctave         Octave
-  | NewBaseOctave     BaseOctave
-  | NewNotesPerOctave NotesPerOctave
+   -- Constructors of new values that shifts key mapping
+   | NewBaseKey        RowKey
+   | NewBasePitch      Pitch
+   | NewOctave         Octave
+   | NewBaseOctave     BaseOctave
+   | NewNotesPerOctave NotesPerOctave
 
-  | NewChannel        Channel
-  | NewVelocity       Velocity
+   | NewChannel        Channel
+   | NewVelocity       Velocity
 
-  | PanicEvent
+   | PanicEvent
+   | SaveConfig
 
-  deriving (Show, Eq)
+     deriving (Show, Eq)
 
 
 type EventHandlerBus    = MVar EventToHandle
@@ -107,8 +109,8 @@ type EventsListener     = EventToHandle → AppState → IO ()
 -- We need this to trigger correct note-off when channel/base-key/base-pitch/channel is changed
 -- before last triggered note is released.
 data StoredEvent
-  = StoredNoteOn Channel Pitch Velocity
-  deriving (Show, Eq)
+   = StoredNoteOn Channel Pitch Velocity
+     deriving (Show, Eq)
 
 
 runEventHandler ∷ EventHandlerContext → IO EventHandlerInterface
@@ -142,6 +144,8 @@ runEventHandler ctx = do
         { handleEvent = putMVar bus
         , getAppState = readIORef appStateRef
         }
+
+      handle ∷ EventToHandle → IO ()
 
       handle (KeyPress k) = do
         appState ← readIORef appStateRef
@@ -183,6 +187,23 @@ runEventHandler ctx = do
 
       handle PanicEvent = sendToMIDIPlayer ctx Panic
 
+      handle SaveConfig = do
+        s ← readIORef appStateRef
+
+        saveConfig Config
+          { configVersion  = def
+
+          , baseKey        = baseKey        (s ∷ AppState)
+          , basePitch      = basePitch      (s ∷ AppState)
+          , octave         = octave         (s ∷ AppState)
+          , baseOctave     = baseOctave     (s ∷ AppState)
+          , notesPerOctave = notesPerOctave (s ∷ AppState)
+
+          , channel        = channel        (s ∷ AppState)
+          , velocity       = velocity       (s ∷ AppState)
+          }
+
+      updateState ∷ (AppState → AppState) → IO ()
       updateState (updateStateMiddleware → (• dupe) → f) =
         atomicModifyIORef' appStateRef f >>= onNewAppState ctx
 
@@ -215,8 +236,8 @@ runEventHandler ctx = do
 
 
 getPitchMapping ∷ RowKey → Pitch → Octave → BaseOctave → NotesPerOctave → HashMap RowKey Pitch
-getPitchMapping baseKey' basePitch' octave' baseOctave' notesPerOctave' = l `union` r
-  where (l, r) = f $ splitAt splitKeysPos allKeysOrder
+getPitchMapping baseKey' basePitch' octave' baseOctave' notesPerOctave' = result
+  where result = uncurry union $ f $ splitAt splitKeysPos allKeysOrder
 
         f = first (reverse • drop leftSliceCount)
             >>> flip zip lp *** flip zip rp
@@ -230,7 +251,7 @@ getPitchMapping baseKey' basePitch' octave' baseOctave' notesPerOctave' = l `uni
         minPitch        = fromPitch minBound
         maxPitch        = fromPitch maxBound
 
-        octaveShift     = (baseOctaveN - octaveN) ⋅ notesPerOctaveN
+        octaveShift     = (baseOctaveN - octaveN) × notesPerOctaveN
         shiftedPitch    = basePitchN - octaveShift
 
         baseKeyPos      = fromMaybe (error [qm| Key {baseKey'} not found |])
@@ -245,6 +266,6 @@ getPitchMapping baseKey' basePitch' octave' baseOctave' notesPerOctave' = l `uni
 
 
 -- For extracting value from breakable monads
-eitherValue ∷ Either a a → a
+eitherValue ∷ Either α α → α
 eitherValue (Left  x) = x
 eitherValue (Right x) = x

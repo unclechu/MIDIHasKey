@@ -11,14 +11,16 @@ module MIDIHasKey.Config
      ( Config (..)
      , parseConfig
      , readConfig
+     , saveConfig
      ) where
 
-import Prelude hiding (readFile)
+import Prelude hiding (readFile, writeFile)
 import Prelude.Unicode
 import GHC.Generics
 
 import Data.Default
-import Data.ByteString hiding (pack, unpack, break)
+import Data.ByteString hiding (pack, unpack, break, writeFile)
+import Data.ByteString.Lazy (writeFile)
 import Data.String (type IsString, fromString)
 import Data.Aeson
 import Data.Aeson.Types
@@ -150,18 +152,18 @@ instance ToJSON Velocity where
 
 
 data Config
-  = Config
-  { configVersion  ∷ ConfigVersion
+   = Config
+   { configVersion  ∷ ConfigVersion
 
-  , baseKey        ∷ RowKey
-  , basePitch      ∷ Pitch
-  , octave         ∷ Octave
-  , baseOctave     ∷ BaseOctave
-  , notesPerOctave ∷ NotesPerOctave
+   , baseKey        ∷ RowKey
+   , basePitch      ∷ Pitch
+   , octave         ∷ Octave
+   , baseOctave     ∷ BaseOctave
+   , notesPerOctave ∷ NotesPerOctave
 
-  , channel        ∷ Channel
-  , velocity       ∷ Velocity
-  } deriving (Show, Eq, Generic)
+   , channel        ∷ Channel
+   , velocity       ∷ Velocity
+   } deriving (Show, Eq, Generic)
 
 instance FromJSON Config
 instance ToJSON Config
@@ -219,6 +221,23 @@ parseConfig src = do
 
 readConfig ∷ IO (Either String Config)
 readConfig = do
+  cfgFile ← getDefaultConfigFilePath
+  doesConfigExist ← doesFileExist cfgFile
+
+  -- If config file doesn't exist just returning default config
+  if doesConfigExist
+     then readFile cfgFile <&> parseConfig
+     else pure $ Right def
+
+
+saveConfig ∷ Config → IO ()
+saveConfig cfg = do
+  cfgFile ← getDefaultConfigFilePath
+  writeFile cfgFile $ encode cfg
+
+
+getDefaultConfigFilePath ∷ IO FilePath
+getDefaultConfigFilePath = do
   -- Getting application config directory.
   -- It creates new if it not exists.
   -- E.g. ~/.config/MIDIHasKey
@@ -228,12 +247,6 @@ readConfig = do
     dir <$ unless doesExist (createDirectory dir)
 
   -- Config file would be named as `config.MIDIHasKey`
-  let cfgFile = dir </> "config" <.> appName
-  doesConfigExist ← doesFileExist cfgFile
-
-  -- If config file doesn't exist just returning default config
-  if doesConfigExist
-     then readFile cfgFile <&> parseConfig
-     else pure $ Right def
+  pure $ dir </> "config" <.> appName
 
   where appName = "MIDIHasKey"
