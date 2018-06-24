@@ -35,7 +35,7 @@ import Sound.MIDI.Message.Channel
 import Sound.MIDI.Message.Channel.Voice (normalVelocity)
 
 -- local
-import Utils
+import MIDIHasKey.Utils
 import Types
 import Keys.Types
 import Keys.Specific.EventHandler

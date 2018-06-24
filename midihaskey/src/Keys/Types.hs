@@ -21,7 +21,7 @@ import Data.Singletons.TH
 import Data.Hashable (Hashable)
 
 -- local
-import Utils (type (↔))
+import MIDIHasKey.Utils (type (↔))
 
 
 singletons [d|

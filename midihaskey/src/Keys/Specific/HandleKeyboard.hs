@@ -28,7 +28,7 @@ import System.Linux.Input.Event.Constants (Key (Key))
 -- local
 import Keys.Types
 import Keys.Helpers
-import Utils (type (↔))
+import MIDIHasKey.Utils (type (↔))
 
 
 instance Hashable Key where

@@ -40,7 +40,7 @@ import System.Directory
 import System.FilePath
 
 -- local
-import Utils
+import MIDIHasKey.Utils
 import Types
 import Keys.Types
 

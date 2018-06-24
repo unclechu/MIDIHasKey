@@ -27,7 +27,7 @@ import Sound.MIDI.Message.Channel
 -- local
 import Keys.Types
 import Keys.Helpers
-import Utils (type (↔), (⋄))
+import MIDIHasKey.Utils (type (↔), (⋄))
 
 
 type GUIKeyOfRow = (RowKey, String)

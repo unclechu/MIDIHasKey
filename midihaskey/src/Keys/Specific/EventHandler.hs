@@ -23,7 +23,7 @@ import Data.Singletons.TH
 -- local
 import Keys.Types
 import Keys.Helpers
-import Utils (type (↔), (⋄))
+import MIDIHasKey.Utils (type (↔), (⋄))
 
 
 class AllKeysOrder a where

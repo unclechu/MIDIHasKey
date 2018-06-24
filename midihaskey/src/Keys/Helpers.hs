@@ -13,7 +13,7 @@ import Prelude.Unicode
 import GHC.TypeLits
 
 -- local
-import Utils (type (↔), Len)
+import MIDIHasKey.Utils (type (↔), Len)
 import Keys.Types
 
 

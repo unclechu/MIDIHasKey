@@ -31,7 +31,7 @@ import Text.InterpolatedString.QM
 import Data.Text (type Text)
 
 -- local
-import Utils
+import MIDIHasKey.Utils
 
 
 type WindowTitle = "MIDIHasKey — Virtual MIDI keyboard for microtonal music"

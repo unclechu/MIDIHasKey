@@ -23,7 +23,7 @@ import Sound.MIDI.Message.Channel
 import Sound.MIDI.Message.Channel.Voice (normalVelocity)
 
 -- local
-import Utils
+import MIDIHasKey.Utils
 import Types
 import GUI
 import MIDIPlayer

@@ -1,0 +1,38 @@
+-- This file has been generated from package.yaml by hpack version 0.28.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 90046f67eaa9d275dc4868c34c292d9055f3e7f06ccaa167943dc36952a6bcbd
+
+name:           midihaskey-utils
+version:        0.1.0.0
+synopsis:       Some generic utils functions for the MIDIHasKey
+description:    Some generic utils functions for the MIDIHasKey
+category:       Audio
+homepage:       https://github.com/unclechu/midihaskey#readme
+bug-reports:    https://github.com/unclechu/midihaskey/issues
+author:         Viacheslav Lotsmanov
+maintainer:     Viacheslav Lotsmanov <lotsmanov89@gmail.com>
+copyright:      2018 Viacheslav Lotsmanov
+license:        GPL-3
+build-type:     Simple
+cabal-version:  >= 1.10
+
+source-repository head
+  type: git
+  location: https://github.com/unclechu/midihaskey
+
+library
+  exposed-modules:
+      MIDIHasKey.Utils
+  other-modules:
+      Paths_midihaskey_utils
+  hs-source-dirs:
+      src
+  ghc-options: -O2
+  build-depends:
+      base >=4.7 && <5
+    , base-unicode-symbols
+    , midi
+    , qm-interpolated-string
+  default-language: Haskell2010

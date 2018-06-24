@@ -12,7 +12,7 @@
 
 {-# LANGUAGE ForeignFunctionInterface #-}
 
-module Utils where
+module MIDIHasKey.Utils where
 
 import Prelude.Unicode
 import GHC.TypeLits

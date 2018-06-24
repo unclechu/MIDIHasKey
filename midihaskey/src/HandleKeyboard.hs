@@ -19,7 +19,7 @@ import System.Linux.Input.Event
 import System.IO (Handle, IOMode (ReadMode), openBinaryFile)
 
 -- local
-import Utils
+import MIDIHasKey.Utils
 import Keys.Types
 import Keys.Specific.HandleKeyboard
 import EventHandler

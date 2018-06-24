@@ -31,6 +31,7 @@ dependencies:
   - hashable
   - linux-evdev
   - midi
+  - midihaskey-utils
   - process
   - qm-interpolated-string
   - scientific

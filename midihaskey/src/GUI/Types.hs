@@ -16,7 +16,7 @@ import Sound.MIDI.Message.Channel
 
 -- local
 import Types
-import Utils
+import MIDIHasKey.Utils
 import Keys.Types
 import Keys.Specific.GUI
 

@@ -25,7 +25,7 @@ import           System.Process
 
 -- local
 import Types
-import Utils
+import MIDIHasKey.Utils
 
 
 type MIDIPlayerBus    = MVar MIDIPlayerAction
