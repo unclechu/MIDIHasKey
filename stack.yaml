@@ -1,7 +1,7 @@
 resolver: lts-11.15
 system-ghc: false
 packages:
-  - .
+  - midihaskey
 extra-deps:
   - gio-0.13.4.1
   - gtk3-0.14.8

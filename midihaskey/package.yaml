@@ -13,9 +13,9 @@ description:
   .
   TODO more description info.
 
-extra-source-files:
-  - README.md
-  - ChangeLog.md
+# TODO
+# extra-source-files:
+#   - README.md
 
 dependencies:
   - aeson

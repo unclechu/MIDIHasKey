@@ -2,4 +2,4 @@
 midihaskey.cabal
 *~
 .lvimrc
-midiplayer/build
+midiplayer-jack-cpp/build
