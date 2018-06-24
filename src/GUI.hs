@@ -104,7 +104,10 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
           containerAdd btn label
           on btn buttonPressEvent   $ tryEvent $ liftIO onPress
           on btn buttonReleaseEvent $ tryEvent $ liftIO onRelease
-          btnClass `maybeMUnit'` \className → withCssClass cssProvider className btn
+
+          bindCssProvider cssProvider btn
+            <&> styleContextAddClass
+            >>= maybeMUnit' btnClass
 
           pure (rowKey, (btn, labelSetMarkup label ∷ String → IO ()))
 

@@ -29,8 +29,3 @@ bindCssProvider ∷ WidgetClass widget ⇒ CssProvider → widget → IO StyleCo
 bindCssProvider cssProvider w = do
   styleContext ← widgetGetStyleContext w
   styleContext <$ styleContextAddProvider styleContext cssProvider maxCssPriority
-
-withCssClass ∷ (WidgetClass w, GlibString s) ⇒ CssProvider → s → w → IO StyleContext
-withCssClass cssProvider className w = do
-  styleContext ← bindCssProvider cssProvider w
-  styleContext <$ styleContextAddClass styleContext className
