@@ -1,4 +1,4 @@
-resolver: lts-11.10
+resolver: lts-11.15
 system-ghc: false
 packages:
   - .
