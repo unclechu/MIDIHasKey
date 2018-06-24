@@ -1,5 +1,5 @@
 .stack-work/
-midihaskey.cabal
+*.cabal
 *~
 .lvimrc
 midiplayer-jack-cpp/build

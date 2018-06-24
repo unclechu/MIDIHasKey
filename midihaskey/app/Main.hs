@@ -6,6 +6,8 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
+module Main (main) where -- "midihaskey" app
+
 import Prelude.Unicode
 
 import Data.Proxy
@@ -33,6 +35,7 @@ import Keys.Types
 import MIDIHasKey.Config
 
 
+main ∷ IO ()
 main = do
   (appExitBus        ∷ MVar ())             ← newEmptyMVar
   (guiStateUpdateBus ∷ MVar GUIStateUpdate) ← newEmptyMVar

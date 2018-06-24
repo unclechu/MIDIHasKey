@@ -1,0 +1,43 @@
+name:                midiplayer-jack-hs
+version:             0.1.0.0
+github:              "unclechu/midihaskey"
+license:             GPL-3
+author:              "Viacheslav Lotsmanov"
+maintainer:          "Viacheslav Lotsmanov <lotsmanov89@gmail.com>"
+copyright:           "2018 Viacheslav Lotsmanov"
+category:            Audio
+synopsis:            A JACK MIDI player for MIDIHasKey
+
+description:
+  A JACK MIDI player for MIDIHasKey
+
+# TODO
+# extra-source-files:
+#   - README.md
+
+dependencies:
+  - array
+  - base >= 4.7 && < 5
+  - base-unicode-symbols
+  - bytestring
+  - explicit-exception
+  - jack
+  - midi
+  - midihaskey-utils
+  - primitive
+  - qm-interpolated-string
+
+ghc-options:
+  - -O2
+
+# library:
+#   source-dirs: src
+
+executables:
+  midiplayer-jack-hs:
+    main: Main.hs
+    source-dirs: app
+    ghc-options:
+      - -threaded
+    # dependencies:
+    #   - midiplayer-jack-hs
