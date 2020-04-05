@@ -12,14 +12,26 @@
 
 {-# LANGUAGE ForeignFunctionInterface #-}
 
-module MIDIHasKey.Utils where
+module MIDIHasKey.Utils
+     ( (•), (<&!>), (⋄), type (↔), type Len, type 𝔹
+     , module Data.Function
+     , module Data.Functor
+     , CatchThreadFailFlag (..)
+     , catchThreadFail
+     , dupe
+     , maybeMUnit
+     , maybeMUnit'
+     , exit
+     , nat2MidiKey
+     ) where
 
 import Prelude.Unicode
 import GHC.TypeLits
 import Data.Proxy
 import Data.Word
 import Data.Maybe (maybe)
-import qualified Data.Function ((&))
+import Data.Function ((&))
+import Data.Functor ((<&>))
 import Data.Monoid
 import Text.InterpolatedString.QM
 
@@ -54,18 +66,6 @@ nat2MidiKey = toPitch ∘ fromInteger ∘ natVal
 {-# INLINE (•) #-}
 infixl 9 •
 
-(&) ∷ α → (α → β) → β
-(&) = (Data.Function.&)
-{-# INLINE (&) #-}
-infixl 1 &
-
--- Left-to-right infix fmap
--- Look at https://github.com/ekmett/lens/blob/d561c44098a1131dc26e545f6bfde58874bf6a6c/src/Control/Lens/Lens.hs#L357-L364
-(<&>) ∷ Functor φ ⇒ φ α → (α → β) → φ β
-(<&>) = flip (<$>)
-{-# INLINE (<&>) #-}
-infixr 5 <&>
-
 -- Left-to-right infix strict fmap
 (<&!>) ∷ Monad μ ⇒ μ α → (α → β) → μ β
 (<&!>) = flip (<$!>)
@@ -77,12 +77,6 @@ infixr 5 <&!>
 (⋄) = (<>)
 {-# INLINE (⋄) #-}
 infixr 6 ⋄
-
--- Better multiplication operator (better alternative to `(⋅)`)
-(×) ∷ Num α ⇒ α → α → α
-(×) = (*)
-{-# INLINE (×) #-}
-infixl 7 ×
 
 
 data CatchThreadFailFlag
@@ -99,12 +93,12 @@ catchThreadFail flags threadName
   where
     mVarInfLockHandler (e ∷ BlockedIndefinitelyOnMVar) =
       hPutStrLn stderr [qms| "{threadName}" is stopped by "{e}" exception,
-                             we're taking it as okay, because it is prorably a listener
+                             we're taking it as okay, because it is probably a listener
                              which doesn't have enough calls yet but designed properly
-                             for expanding in the future. |]
+                             for further implementations. |]
 
     etcHandler (e ∷ SomeException) = do
-      hPutStrLn stderr [qm| "{threadName}" thread is failed! |]
+      hPutStrLn stderr [qm| "{threadName}" thread has failed! |]
       hPrint stderr e
       exit
 

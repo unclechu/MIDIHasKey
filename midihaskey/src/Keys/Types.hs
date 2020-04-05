@@ -10,6 +10,12 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Keys.Types where
 

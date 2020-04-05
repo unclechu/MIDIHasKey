@@ -1,10 +1,14 @@
-resolver: lts-11.15
+resolver: lts-15.6
 system-ghc: false
 packages:
   - midihaskey
   - midihaskey-utils
   - midiplayer-jack-hs
 extra-deps:
-  - gio-0.13.4.1
-  - gtk3-0.14.8
+  - cairo-0.13.8.0
+  - gio-0.13.8.0
+  - glib-0.13.8.0
+  - gtk2hs-buildtools-0.13.8.0
+  - gtk3-0.15.4
   - linux-evdev-0.3.2
+  - pango-0.13.8.0
