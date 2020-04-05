@@ -4,7 +4,7 @@ github:              "unclechu/midihaskey"
 license:             GPL-3
 author:              "Viacheslav Lotsmanov"
 maintainer:          "Viacheslav Lotsmanov <lotsmanov89@gmail.com>"
-copyright:           "2018 Viacheslav Lotsmanov"
+copyright:           "2018, 2020 Viacheslav Lotsmanov"
 category:            Audio
 synopsis:            Virtual MIDI keyboard for microtonal music
 

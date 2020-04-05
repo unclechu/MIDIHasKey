@@ -13,7 +13,7 @@ homepage:       https://github.com/unclechu/midihaskey#readme
 bug-reports:    https://github.com/unclechu/midihaskey/issues
 author:         Viacheslav Lotsmanov
 maintainer:     Viacheslav Lotsmanov <lotsmanov89@gmail.com>
-copyright:      2018 Viacheslav Lotsmanov
+copyright:      2018, 2020 Viacheslav Lotsmanov
 license:        GPL-3
 build-type:     Simple
 cabal-version:  >= 1.10
