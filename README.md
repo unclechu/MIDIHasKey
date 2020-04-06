@@ -42,13 +42,23 @@ For now you can:
 
 ## Usage (from build to run)
 
+### Using [Stack](https://haskellstack.org)
+
 ```bash
-$ stack build --install-ghc
-$ (cd midiplayer && make)
-$ env PATH="midiplayer/build:$PATH" stack exec midihaskey -- /dev/input/by-id/usb-04b4_6018-event-kbd
+stack build --install-ghc
+(cd midiplayer && make)
+env PATH="midiplayer/build:$PATH" stack exec midihaskey -- /dev/input/by-id/usb-xxxx_yyyy-event-kbd
 ```
 
-Where `/dev/input/by-id/usb-04b4_6018-event-kbd` is your keyboard device path.
+### Using [Nix](https://nixos.org/nix/)
+
+**TODO** Implement Nix packaging for C++ MIDI player
+
+```bash
+nix-shell --pure --run 'midihaskey /dev/input/by-id/usb-xxxx_yyyy-event-kbd'
+```
+
+Where `/dev/input/by-id/usb-xxxx_yyyy-event-kbd` is your keyboard device path.
 
 ## More info
 

@@ -1,7 +1,9 @@
-name:           midihaskey-utils
+cabal-version: 1.12
+
+name:           midiplayer-jack-hs
 version:        0.1.0.0
-synopsis:       Some generic utils functions for the MIDIHasKey
-description:    Some generic utils functions for the MIDIHasKey
+synopsis:       A JACK MIDI player for MIDIHasKey
+description:    A JACK MIDI player for MIDIHasKey
 category:       Audio
 homepage:       https://github.com/unclechu/midihaskey#readme
 bug-reports:    https://github.com/unclechu/midihaskey/issues
@@ -10,20 +12,24 @@ maintainer:     Viacheslav Lotsmanov <lotsmanov89@gmail.com>
 copyright:      2018, 2020 Viacheslav Lotsmanov
 license:        GPL-3
 build-type:     Simple
-cabal-version:  >= 1.10
 
 source-repository head
   type: git
   location: https://github.com/unclechu/midihaskey
 
-library
-  exposed-modules:
-      MIDIHasKey.Utils
-  hs-source-dirs: src
-  ghc-options: -O2
+executable midiplayer-jack-hs
+  main-is: Main.hs
+  hs-source-dirs: app
+  ghc-options: -O2 -threaded
   build-depends:
-      base >=4.7 && <5
+      array
+    , base >=4.7 && <5
     , base-unicode-symbols ==0.2.4.2
+    , bytestring
+    , explicit-exception
+    , jack
     , midi
+    , midihaskey-utils
+    , primitive
     , qm-interpolated-string
   default-language: Haskell2010

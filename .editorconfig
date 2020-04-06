@@ -1,13 +1,13 @@
 root = true
 
-[*.{hs,cabal,yaml,md,sh,c++,h++,css}]
+[*.{hs,cabal,yaml,md,sh,c++,h++,css,nix}]
 indent_style = space
 indent_size = 2
 end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[*.{hs,yaml,md,c++,h++}]
+[*.{hs,yaml,md,c++,h++,nix}]
 max_line_length = 100
 
 [*.css]

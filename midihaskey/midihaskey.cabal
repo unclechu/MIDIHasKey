@@ -1,0 +1,92 @@
+cabal-version: 1.12
+
+name:           midihaskey
+version:        0.1.0.0
+synopsis:       Virtual MIDI keyboard for microtonal music
+
+description:    Virtual MIDI keyboard for microtonal music.
+                TODO add more description info.
+
+category:       Audio
+homepage:       https://github.com/unclechu/midihaskey#readme
+bug-reports:    https://github.com/unclechu/midihaskey/issues
+author:         Viacheslav Lotsmanov
+maintainer:     Viacheslav Lotsmanov <lotsmanov89@gmail.com>
+copyright:      2018, 2020 Viacheslav Lotsmanov
+license:        GPL-3
+build-type:     Simple
+
+source-repository head
+  type: git
+  location: https://github.com/unclechu/midihaskey
+
+library
+  exposed-modules:
+      EventHandler
+      GUI
+      GUI.Alerts
+      GUI.Types
+      GUI.Utils
+      HandleKeyboard
+      Keys.Helpers
+      Keys.Specific.EventHandler
+      Keys.Specific.GUI
+      Keys.Specific.HandleKeyboard
+      Keys.Types
+      MIDIHasKey.Config
+      MIDIPlayer
+      Types
+  hs-source-dirs: src
+  ghc-options: -O2
+  build-depends:
+      aeson
+    , attoparsec
+    , base >=4.7 && <5
+    , base-unicode-symbols ==0.2.4.2
+    , bytestring
+    , data-default
+    , directory
+    , filepath
+    , glib
+    , gtk3
+    , hashable
+    , linux-evdev
+    , midi
+    , midihaskey-utils
+    , process
+    , qm-interpolated-string
+    , scientific
+    , singletons
+    , text
+    , transformers
+    , unordered-containers
+  default-language: Haskell2010
+
+executable midihaskey
+  main-is: Main.hs
+  hs-source-dirs: app
+  ghc-options: -O2 -threaded
+  build-depends:
+      aeson
+    , attoparsec
+    , base >=4.7 && <5
+    , base-unicode-symbols ==0.2.4.2
+    , bytestring
+    , data-default
+    , directory
+    , filepath
+    , glib
+    , gtk3
+    , hashable
+    , linux-evdev
+    , midi
+    , midihaskey
+    , midihaskey-utils
+    , process
+    , qm-interpolated-string
+    , scientific
+    , singletons
+    , text
+    , transformers
+    , unordered-containers
+  default-language: Haskell2010

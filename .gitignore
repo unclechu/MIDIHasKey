@@ -1,5 +1,4 @@
 .stack-work/
-*.cabal
 *~
 .lvimrc
 midiplayer-jack-cpp/build
