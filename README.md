@@ -60,6 +60,12 @@ nix-shell --pure --run 'midihaskey /dev/input/by-id/usb-xxxx_yyyy-event-kbd'
 
 Where `/dev/input/by-id/usb-xxxx_yyyy-event-kbd` is your keyboard device path.
 
+You can enter `nix-shell` in development mode to have `cabal`, `ghci` and source packages:
+
+```bash
+nix-shell --pure --arg dev true
+```
+
 ## More info
 
 Real-time critical part (see [midiplayer](./midiplayer)) written in C++ because Haskell runtime with
