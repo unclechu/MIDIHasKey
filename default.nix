@@ -1,57 +1,28 @@
-let
-  nixpkgsSnapshot = {
-    owner = "NixOS";
-    repo = "nixpkgs";
-    rev = "19.09"; # Git commit hash: d5291756487d70bc336e33512a9baf9fa1788faf
-    sha256 = "0mhqhq21y5vrr1f30qd2bvydv4bbbslvyzclhw0kdxmkgg3z4c92";
-  };
-
-  ambientNixpkgs = import <nixpkgs> {};
-in
-{ nixpkgs ? ambientNixpkgs.pkgs.fetchFromGitHub nixpkgsSnapshot
-, dev ? false
+let sources = import nix/sources.nix; in
+{ pkgs ? import sources.nixpkgs {}
+, dev  ? false
 }:
 let
-  pkgs = import nixpkgs {};
+  hpWithUtils = pkgs.haskellPackages.extend (self: super:
+    packageSingleton midiHasKeyUtils
+  );
 
-  haskell = pkgs.haskell.packages.ghc865.override {
-    overrides = self: super: {
-      base-unicode-symbols = self.callPackage
-        ({ mkDerivation, base }:
-          mkDerivation {
-            pname = "base-unicode-symbols";
-            version = "0.2.4.2";
-            sha256 = "0qkhp4ybmx4nbqqkrmw3hkm47bv61i2wpi20qb09wvk10g2dcr23";
-            libraryHaskellDepends = [ base ];
-            description = "Unicode alternatives for common functions and operators";
-            license = pkgs.stdenv.lib.licenses.bsd3;
-          }) {};
-    };
+  package = hp: dir: rec {
+    name = baseNameOf (toString dir);
+    pkg  = hp.callCabal2nix name (pkgs.lib.cleanSource dir) {};
   };
-
-  package = haskellContext: dir:
-    let
-      name = baseNameOf (toString dir);
-      pkg  = haskellContext.callCabal2nix name (pkgs.lib.cleanSource dir) {};
-    in
-      { inherit name pkg; };
 
   packageSingleton = { name, pkg }: { "${name}" = pkg; };
 
-  midiHasKeyUtils = package haskell ./midihaskey-utils;
-  midiHasKey = package haskellWithUtils ./midihaskey;
-  midiHasKeyJackHs = package haskellWithUtils ./midiplayer-jack-hs;
+  midiHasKeyUtils  = package pkgs.haskellPackages ./midihaskey-utils;
+  midiHasKey       = package hpWithUtils          ./midihaskey;
+  midiHasKeyJackHs = package hpWithUtils          ./midiplayer-jack-hs;
 
-  haskellWithUtils = haskell.override {
-    overrides = self: super: packageSingleton midiHasKeyUtils;
-  };
-
-  haskellWithAll = haskellWithUtils.override {
-    overrides = self: super:
-      packageSingleton midiHasKeyUtils // # Fork from "haskellWithUtils" doesn't help to inherit it
-      packageSingleton midiHasKey //
-      packageSingleton midiHasKeyJackHs;
-  };
+  haskellWithAll = hpWithUtils.extend (self: super:
+    packageSingleton midiHasKeyUtils // # Fork from "haskellWithUtils" doesn’t help to inherit it
+    packageSingleton midiHasKey //
+    packageSingleton midiHasKeyJackHs
+  );
 
   onlyExecutables =
     if dev then (x: x) else pkgs.haskell.lib.justStaticExecutables;
