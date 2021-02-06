@@ -4,7 +4,7 @@ let sources = import nix/sources.nix; in
 }:
 let
   hpWithUtils = pkgs.haskellPackages.extend (self: super:
-    packageSingleton midiHasKeyUtils
+    packageSingleton midihaskey-utils
   );
 
   package = hp: dir: rec {
@@ -14,14 +14,14 @@ let
 
   packageSingleton = { name, pkg }: { "${name}" = pkg; };
 
-  midiHasKeyUtils  = package pkgs.haskellPackages ./midihaskey-utils;
-  midiHasKey       = package hpWithUtils          ./midihaskey;
-  midiHasKeyJackHs = package hpWithUtils          ./midiplayer-jack-hs;
+  midihaskey-utils   = package pkgs.haskellPackages ./midihaskey-utils;
+  midihaskey         = package hpWithUtils          ./midihaskey;
+  midiplayer-jack-hs = package hpWithUtils          ./midiplayer-jack-hs;
 
   haskellWithAll = hpWithUtils.extend (self: super:
-    packageSingleton midiHasKeyUtils // # Fork from "haskellWithUtils" doesn’t help to inherit it
-    packageSingleton midiHasKey //
-    packageSingleton midiHasKeyJackHs
+    packageSingleton midihaskey-utils // # Fork from "haskellWithUtils" doesn’t help to inherit it
+    packageSingleton midihaskey //
+    packageSingleton midiplayer-jack-hs
   );
 
   onlyExecutables =
@@ -38,13 +38,41 @@ let
       ]))
 
       pkgs.cabal-install
+
+      pkgs.gnumake
+      pkgs.pkg-config
+      pkgs.jack2
     ] else [];
+
+  midiplayer-jack-cpp = pkgs.stdenv.mkDerivation {
+    name = "MIDIHaskKey-midiplayer-jack-cpp";
+    src = ./midiplayer-jack-cpp;
+    buildInputs = [ pkgs.jack2 pkgs.gnumake pkgs.pkg-config ];
+
+    buildPhase = ''
+      set -eu
+      make
+    '';
+
+    installPhase = ''
+      set -eu
+      mkdir -p -- "$out"/bin
+      cp -- build/midiplayer-jack-cpp "$out"/bin
+    '';
+
+    meta.license = pkgs.stdenv.lib.licenses.gpl3;
+    meta.platforms = pkgs.stdenv.lib.platforms.linux;
+  };
 in
 pkgs.stdenv.mkDerivation {
   name = "MIDIHasKey";
 
   buildInputs = [
-    (onlyExecutables midiHasKey.pkg)
-    (onlyExecutables midiHasKeyJackHs.pkg)
+    (onlyExecutables midihaskey.pkg)
+    (onlyExecutables midiplayer-jack-hs.pkg)
+    midiplayer-jack-cpp
   ] ++ devDependencies;
+
+  meta.license = pkgs.stdenv.lib.licenses.gpl3;
+  meta.platforms = pkgs.stdenv.lib.platforms.linux;
 }

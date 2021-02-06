@@ -10,7 +10,7 @@ import Prelude.Unicode
 import GHC.TypeLits
 
 import           Data.Proxy
-import           Data.ByteString.Lazy.Char8 as BS
+import           Data.ByteString.Lazy.Char8 as BS hiding (putStrLn)
 
 import           Control.Monad
 import           Control.Concurrent
@@ -43,25 +43,24 @@ runMIDIPlayer = do
   (bus ∷ MIDIPlayerBus) ← newEmptyMVar
 
   (putMVar bus <$) $ forkIO $ catchThreadFail [] "MIDI Player" $ do
-    (Just inHdl, _, _, !_) ← createProcess (proc "./midiplayer" []) {std_in = CreatePipe}
-    hSetBuffering inHdl NoBuffering
-    hSetBinaryMode inHdl True
+    hSetBuffering  IO.stdout NoBuffering
+    hSetBinaryMode IO.stdout True
 
-    let printEv ev = do IO.hPrint inHdl $ BS.length ev -- Print size as line
-                        BS.hPut inHdl ev               -- Print bytes of an event
-                        IO.hPutStrLn inHdl ""          -- Terminate an event with empty line
+    let printEv ev = do print ∘ BS.length $ ev -- Print size as line
+                        BS.hPut IO.stdout ev   -- Print bytes of an event
+                        putStrLn ""            -- Terminate an event with empty line
 
-    forever $ action2midi <$> takeMVar bus >>= \case
+    forever $ (action2midi <$> takeMVar bus) >>= \case
 
       [toBSEvent → ev] → do
-        IO.hPutStrLn inHdl "single"
+        putStrLn "single"
         printEv ev
 
       events → do
-        IO.hPutStrLn inHdl "multiple"
-        IO.hPrint inHdl $ Prelude.length events
+        putStrLn "multiple"
+        print ∘ Prelude.length $ events
         forM_ events $ toBSEvent • printEv
-        IO.hPutStrLn inHdl "" -- Terminate "multiple" command with an empty line
+        putStrLn "" -- Terminate "multiple" command with an empty line
 
 
 action2midi ∷ MIDIPlayerAction → [MCh.T]
