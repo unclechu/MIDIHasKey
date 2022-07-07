@@ -24,11 +24,11 @@ import Data.ByteString.Lazy (writeFile)
 import Data.String (type IsString, fromString)
 import Data.Aeson
 import Data.Aeson.Types
+import qualified Data.Aeson.KeyMap as KM
 import Data.Text (type Text, pack, unpack)
 import Data.Text.Encoding (encodeUtf8)
 import Text.InterpolatedString.QM
 import Data.Scientific (toRealFloat)
-import qualified Data.HashMap.Strict as HM
 import Data.Attoparsec.Text
 
 import Control.Monad (unless)
@@ -196,7 +196,7 @@ parseConfig src = do
   -- that's why we parsing raw JSON first.
   parsedConfVer@(ConfigVersion parsedMajor _) <-
     case jsonConfig of
-         (Object (HM.lookup "configVersion" → Just x@(String _))) →
+         (Object (KM.lookup "configVersion" → Just x@(String _))) →
            case fromJSON x of
                 Success x → Right x
                 Error msg → Left [qms| Parsing config version is failed with message: {msg} |]

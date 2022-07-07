@@ -17,6 +17,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
 
 module Keys.Types where
 
@@ -31,7 +32,7 @@ import Data.Hashable (Hashable)
 import MIDIHasKey.Utils (type (↔))
 
 
-singletons [d|
+$(singletons [d|
   data RowKey
     = ZKey | XKey | CKey | VKey | BKey | NKey | MKey | CommaKey | DotKey | SlashKey
     | AKey | SKey | DKey | FKey | GKey | HKey | JKey | KKey | LKey | ColonKey | QuoteKey
@@ -41,9 +42,12 @@ singletons [d|
 
     | BacktickKey | N1Key | N2Key | N3Key | N4Key | N5Key | N6Key | N7Key | N8Key | N9Key | N0Key
     | MinusKey | EqualKey
+    |])
 
-    deriving (Show, Read, Eq, Generic)
-    |]
+deriving instance Show RowKey
+deriving instance Read RowKey
+deriving instance Eq RowKey
+deriving instance Generic RowKey
 
 instance Hashable RowKey
 

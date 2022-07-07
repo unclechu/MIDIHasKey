@@ -57,6 +57,7 @@ library
     , qm-interpolated-string
     , scientific
     , singletons
+    , singletons-th
     , text
     , transformers
     , unordered-containers

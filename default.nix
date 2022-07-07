@@ -46,8 +46,8 @@ let
       cp -- build/midiplayer-jack-cpp "$out"/bin
     '';
 
-    meta.license = pkgs.stdenv.lib.licenses.gpl3;
-    meta.platforms = pkgs.stdenv.lib.platforms.linux;
+    meta.license = pkgs.lib.licenses.gpl3;
+    meta.platforms = pkgs.lib.platforms.linux;
   };
 
   runDependencies =
@@ -79,6 +79,6 @@ pkgs.stdenv.mkDerivation {
     (if run then runDependencies else []) ++
     (if dev then devDependencies else []);
 
-  meta.license = pkgs.stdenv.lib.licenses.gpl3;
-  meta.platforms = pkgs.stdenv.lib.platforms.linux;
+  meta.license = pkgs.lib.licenses.gpl3;
+  meta.platforms = pkgs.lib.platforms.linux;
 }
