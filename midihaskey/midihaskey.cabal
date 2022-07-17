@@ -47,7 +47,7 @@ library
       aeson
     , attoparsec
     , base >=4.7 && <5
-    , base-unicode-symbols ==0.2.4.2
+    , base-unicode-symbols >=0.2.4.2
     , bytestring
     , data-default
     , directory
@@ -76,7 +76,7 @@ executable midihaskey
       aeson
     , attoparsec
     , base >=4.7 && <5
-    , base-unicode-symbols ==0.2.4.2
+    , base-unicode-symbols >=0.2.4.2
     , bytestring
     , data-default
     , directory

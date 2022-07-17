@@ -1,14 +1,27 @@
-resolver: lts-15.6
-system-ghc: false
+resolver:
+  # GHC 9.0.2
+  url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/15.yaml
+
 packages:
   - midihaskey
   - midihaskey-utils
   - midiplayer-jack-hs
+
 extra-deps:
-  - cairo-0.13.8.0
-  - gio-0.13.8.0
-  - glib-0.13.8.0
-  - gtk2hs-buildtools-0.13.8.0
-  - gtk3-0.15.4
   - linux-evdev-0.3.2
-  - pango-0.13.8.0
+  - gtk3-0.15.7
+  - cairo-0.13.8.2
+  - pango-0.13.8.2
+  - glib-0.13.8.2
+  - gio-0.13.8.2
+
+nix:
+  packages:
+    - gmp
+    - zlib
+    - pkg-config
+    - jack2
+    - gtk3
+    - cairo
+    - pango
+    - glib
