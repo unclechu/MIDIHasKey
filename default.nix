@@ -1,4 +1,8 @@
-let sources = import nix/sources.nix; in
+let
+  sources = import nix/sources.nix;
+  availableBuildTools = [ "cabal" "stack" ];
+in
+
 { pkgs ? import sources.nixpkgs {}
 
 # When this file is called by nix-shell it’s set to `true` automatically.
@@ -9,10 +13,11 @@ let sources = import nix/sources.nix; in
 , with-midihaskey ? false
 , with-midiplayer-jack-hs ? false
 , with-midiplayer-jack-cpp ? false
-, with-cabal ? true
-, with-stack ? false
+, buildTools ? [ "cabal" ] # See “availableBuildTools”
 , withHoogle ? true
 }:
+
+assert builtins.all (x: builtins.elem x availableBuildTools) buildTools;
 
 let
   inherit (pkgs) lib;
@@ -80,8 +85,8 @@ let
     inherit withHoogle;
 
     buildInputs =
-      lib.optional with-cabal hsPkgs.cabal-install
-      ++ lib.optional with-stack hsPkgs.stack
+      lib.optional (builtins.elem "cabal" buildTools) hsPkgs.cabal-install
+      ++ lib.optional (builtins.elem "stack" buildTools) hsPkgs.stack
       ++ lib.optional with-midiplayer-jack-cpp midiplayer-jack-cpp
       ++ lib.optional with-midihaskey hsPkgs.midihaskey.exe
       ++ lib.optional with-midiplayer-jack-hs hsPkgs.midiplayer-jack-hs.exe;
