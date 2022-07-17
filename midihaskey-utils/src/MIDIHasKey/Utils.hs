@@ -28,11 +28,8 @@ module MIDIHasKey.Utils
 import Prelude.Unicode
 import GHC.TypeLits
 import Data.Proxy
-import Data.Word
-import Data.Maybe (maybe)
 import Data.Function ((&))
 import Data.Functor ((<&>))
-import Data.Monoid
 import Text.InterpolatedString.QM
 
 import Control.Monad ((<$!>), void)
