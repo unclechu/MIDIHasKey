@@ -10,8 +10,5 @@ dist-newstyle/
 # C++ MIDI player build artifacts
 midiplayer-jack-cpp/build
 
-# Test builds
-test/midihaskey
-
 # Nix build artifacts
 result*
