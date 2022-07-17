@@ -14,15 +14,11 @@ module Keys.Specific.EventHandler
      ( allKeysOrder
      ) where
 
-import Prelude.Unicode
-import GHC.TypeLits
-
 import Data.Proxy
 import Data.Singletons.TH
 
 -- local
 import Keys.Types
-import Keys.Helpers
 import MIDIHasKey.Utils (type (↔), (⋄))
 
 

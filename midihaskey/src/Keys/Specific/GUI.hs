@@ -16,13 +16,10 @@ module Keys.Specific.GUI
      , GUIKeysRow
      ) where
 
-import Prelude.Unicode
 import GHC.TypeLits
 
 import Data.Proxy
 import Data.Singletons.TH
-
-import Sound.MIDI.Message.Channel
 
 -- local
 import Keys.Types

@@ -20,11 +20,9 @@ import Foreign.C.Types
 
 import Data.IORef
 import Data.Proxy
-import Data.Maybe
 import Data.HashMap.Strict
 import Text.InterpolatedString.QM
 
-import Control.Arrow
 import Control.Monad
 import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent
@@ -50,7 +48,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
   wnd ← do
     wnd ← windowNew
-    on wnd objectDestroy mainQuit
+    void $ on wnd objectDestroy mainQuit
 
     set wnd [ containerBorderWidth := 8
             , windowTitle := symbolVal (Proxy ∷ Proxy WindowTitle)
@@ -69,7 +67,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
         → RowKey → String
         → (String, Maybe String)
 
-      getButtonLabelAndClass basePitch pitchMapping octave perOctave rowKey keyLabel =
+      getButtonLabelAndClass basePitch pitchMapping _octave perOctave rowKey keyLabel =
         (label, className)
         where
           foundPitch = lookup rowKey pitchMapping <&> fromPitch
@@ -82,16 +80,14 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
           className ∷ Maybe String
           className = do
             x ← foundPitch <&> subtract (fromPitch basePitch) <&> fromIntegral
-
-            let octaveN    = pred $ fromIntegral $ fromOctave octave     ∷ Double
-                perOctaveN = fromIntegral $ fromNotesPerOctave perOctave ∷ Double
+            let perOctaveN = fromIntegral $ fromNotesPerOctave perOctave ∷ Double
 
             pure $
               if x ≥ 0
-                 then let n = floor $ x ÷ perOctaveN
+                 then let n = floor $ x ÷ perOctaveN ∷ Integer
                        in [qm| btn-octave-{succ $ n `mod` colorsCount} |]
 
-                 else let n = floor $ (negate x - 1) ÷ perOctaveN
+                 else let n = floor $ (negate x - 1) ÷ perOctaveN ∷ Integer
                        in [qm| btn-octave-{succ $ pred colorsCount - (n `mod` colorsCount)} |]
 
   (allButtonsRows, allButtons) ← do
@@ -102,8 +98,8 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
           btn ← buttonNew
           containerAdd btn label
-          on btn buttonPressEvent   $ tryEvent $ liftIO onPress
-          on btn buttonReleaseEvent $ tryEvent $ liftIO onRelease
+          void . on btn buttonPressEvent   $ tryEvent $ liftIO onPress
+          void . on btn buttonReleaseEvent $ tryEvent $ liftIO onRelease
 
           bindCssProvider cssProvider btn
             <&> styleContextAddClass
@@ -129,13 +125,13 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
   exitEl ← do
     btn ← buttonNew
     set btn [buttonLabel := "Exit"]
-    on btn buttonActivated $ appExitHandler ctx
+    void . on btn buttonActivated $ appExitHandler ctx
     pure btn
 
   panicEl ← do
     btn ← buttonNew
     set btn [buttonLabel := "Panic"]
-    on btn buttonActivated $ panicButtonHandler ctx
+    void . on btn buttonActivated $ panicButtonHandler ctx
     pure btn
 
   (channelEl, (channelUpdater ∷ Channel → IO ())) ← do
@@ -146,7 +142,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
       forM_ [(minBound ∷ Channel) .. maxBound] $ \ch → do
         menuItem ← menuItemNew
         set menuItem [menuItemLabel := show $ succ $ fromChannel ch]
-        on menuItem menuItemActivated $ selectChannelHandler ctx ch
+        void . on menuItem menuItemActivated $ selectChannelHandler ctx ch
         menuShellAppend menu menuItem
 
       menu <$ widgetShowAll menu
@@ -157,7 +153,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     btn ← buttonNew
     containerAdd btn label
-    on btn buttonActivated $ menuPopup menu Nothing
+    void . on btn buttonActivated $ menuPopup menu Nothing
     pure (btn, getLabel • labelSetMarkup label)
 
   (baseKeyEl, (baseKeyUpdater ∷ RowKey → IO ())) ← do
@@ -168,7 +164,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
       forM_ allGUIKeys $ \(rowKey, keyLabel) → do
         menuItem ← menuItemNew
         set menuItem [menuItemLabel := keyLabel]
-        on menuItem menuItemActivated $ setBaseKeyHandler ctx rowKey
+        void . on menuItem menuItemActivated $ setBaseKeyHandler ctx rowKey
         menuShellAppend menu menuItem
 
       menu <$ widgetShowAll menu
@@ -179,7 +175,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
     btn ← buttonNew
     containerAdd btn label
-    on btn buttonActivated $ menuPopup menu Nothing
+    void . on btn buttonActivated $ menuPopup menu Nothing
     pure (btn, getLabel • labelSetMarkup label)
 
   (basePitchEl, (basePitchUpdater ∷ Pitch → IO ())) ← do
@@ -196,7 +192,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
     containerAdd box label
     containerAdd box btn
 
-    connectGeneric "value-changed" True btn $ \_ → do
+    void . connectGeneric "value-changed" True btn $ \_ → do
       x ← spinButtonGetValueAsInt btn
       setBasePitchHandler ctx $ toPitch $ pred x
       pure (0 ∷ CInt)
@@ -217,7 +213,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
     containerAdd box label
     containerAdd box btn
 
-    connectGeneric "value-changed" True btn $ \_ → do
+    void . connectGeneric "value-changed" True btn $ \_ → do
       x ← fromIntegral <$> spinButtonGetValueAsInt btn
       setOctaveHandler ctx $ toOctave x
       pure (0 ∷ CInt)
@@ -238,7 +234,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
     containerAdd box label
     containerAdd box btn
 
-    connectGeneric "value-changed" True btn $ \_ → do
+    void . connectGeneric "value-changed" True btn $ \_ → do
       x ← fromIntegral <$> spinButtonGetValueAsInt btn
       setBaseOctaveHandler ctx $ toBaseOctave' x
       pure (0 ∷ CInt)
@@ -259,7 +255,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
     containerAdd box label
     containerAdd box btn
 
-    connectGeneric "value-changed" True btn $ \_ → do
+    void . connectGeneric "value-changed" True btn $ \_ → do
       x ← fromIntegral <$> spinButtonGetValueAsInt btn
       setNotesPerOctaveHandler ctx $ toNotesPerOctave x
       pure (0 ∷ CInt)
@@ -270,7 +266,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
     btn ← buttonNewWithLabel "💾"
     widgetSetSensitive btn False
     widgetSetTooltipText btn $ Just "Save application state"
-    on btn buttonActivated $ saveConfigButtonHandler ctx
+    void . on btn buttonActivated $ saveConfigButtonHandler ctx
     pure (btn, widgetSetSensitive btn)
 
   topButtons ← do
@@ -423,7 +419,7 @@ mainAppWindow ctx cssProvider stateUpdateBus = do
 
 myGUI ∷ GUIContext → MVar GUIStateUpdate → (Window → IO ()) → IO ()
 myGUI ctx stateUpdateBus withMainWindow = do
-  initGUI
+  _ ← initGUI
   cssProvider ← getCssProvider
   mainAppWindow ctx cssProvider stateUpdateBus >>= withMainWindow
   mainGUI

@@ -14,14 +14,12 @@ module Keys.Specific.HandleKeyboard
      ( allKeys
      ) where
 
-import Prelude.Unicode
 import GHC.TypeLits
 
 import Data.Proxy
 import Data.Singletons.TH
 import Data.Hashable
 import Data.HashMap.Strict
-import Data.Word
 
 import System.Linux.Input.Event.Constants (Key (Key))
 

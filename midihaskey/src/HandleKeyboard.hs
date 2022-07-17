@@ -8,7 +8,6 @@ module HandleKeyboard
      ) where
 
 import Prelude hiding (lookup)
-import Prelude.Unicode
 
 import Data.HashMap.Strict hiding (map)
 
@@ -16,13 +15,12 @@ import Control.Monad
 import Control.Concurrent (forkIO)
 
 import System.Linux.Input.Event
-import System.IO (Handle, IOMode (ReadMode), openBinaryFile)
+import System.IO (IOMode (ReadMode), openBinaryFile)
 
 -- local
 import MIDIHasKey.Utils
 import Keys.Types
 import Keys.Specific.HandleKeyboard
-import EventHandler
 
 
 type DeviceReader = IO (RowKey, 𝔹)

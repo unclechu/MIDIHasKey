@@ -24,7 +24,6 @@ module Types
      ) where
 
 import Prelude.Unicode
-import GHC.TypeLits
 
 import Data.Word
 import Text.InterpolatedString.QM
@@ -59,11 +58,11 @@ instance Enum NotesPerOctave where
   pred x@(NotesPerOctave y) | x ≤ minBound = error "Cannot `pred` `minBound ∷ NotesPerOctave`"
                             | otherwise = NotesPerOctave $ pred y
 
-  toEnum n | n < min ∨ n > max = error [qm| Cannot `toEnum` {n} to `NotesPerOctave` |]
+  toEnum n | n < min' ∨ n > max' = error [qm| Cannot `toEnum` {n} to `NotesPerOctave` |]
            | otherwise = NotesPerOctave $ toEnum n
 
-    where min = fromIntegral $ fromNotesPerOctave minBound
-          max = fromIntegral $ fromNotesPerOctave maxBound
+    where min' = fromIntegral $ fromNotesPerOctave minBound
+          max' = fromIntegral $ fromNotesPerOctave maxBound
 
   fromEnum (NotesPerOctave x) = fromEnum x
 
@@ -89,11 +88,11 @@ instance Enum Octave where
   pred x@(Octave y) | x ≤ minBound = error "Cannot `pred` `minBound ∷ Octave`"
                     | otherwise = Octave $ pred y
 
-  toEnum n | n < min ∨ n > max = error [qm| Cannot `toEnum` {n} to `Octave` |]
+  toEnum n | n < min' ∨ n > max' = error [qm| Cannot `toEnum` {n} to `Octave` |]
            | otherwise = Octave $ toEnum n
 
-    where min = fromIntegral $ fromOctave minBound
-          max = fromIntegral $ fromOctave maxBound
+    where min' = fromIntegral $ fromOctave minBound
+          max' = fromIntegral $ fromOctave maxBound
 
   fromEnum (Octave x) = fromEnum x
 

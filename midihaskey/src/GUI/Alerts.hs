@@ -5,7 +5,6 @@
 module GUI.Alerts where
 
 import Prelude
-import Prelude.Unicode
 
 import Data.Text (type Text)
 

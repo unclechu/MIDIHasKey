@@ -8,7 +8,6 @@ module GUI.Types
      ) where
 
 import Prelude
-import Prelude.Unicode
 
 import Data.HashMap.Strict
 
@@ -18,7 +17,6 @@ import Sound.MIDI.Message.Channel
 import Types
 import MIDIHasKey.Utils
 import Keys.Types
-import Keys.Specific.GUI
 
 
 data GUIContext

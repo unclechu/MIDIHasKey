@@ -9,11 +9,10 @@
 
 module Keys.Helpers where
 
-import Prelude.Unicode
 import GHC.TypeLits
 
 -- local
-import MIDIHasKey.Utils (type (↔), Len)
+import MIDIHasKey.Utils (Len)
 import Keys.Types
 
 

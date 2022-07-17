@@ -7,24 +7,19 @@
 module MIDIPlayer where
 
 import Prelude.Unicode
-import GHC.TypeLits
 
-import           Data.Proxy
 import           Data.ByteString.Lazy.Char8 as BS hiding (putStrLn)
 
 import           Control.Monad
 import           Control.Concurrent
-import           Control.Concurrent.MVar
 
 import           Sound.MIDI.Message as MMsg
 import           Sound.MIDI.Message.Channel as MCh
 import qualified Sound.MIDI.Message.Channel.Voice as MVo
 
 import           System.IO as IO
-import           System.Process
 
 -- local
-import Types
 import MIDIHasKey.Utils
 
 

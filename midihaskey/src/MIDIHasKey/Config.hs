@@ -1,11 +1,12 @@
-{-# LANGUAGE UnicodeSyntax #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UnicodeSyntax #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module MIDIHasKey.Config
      ( Config (..)
@@ -21,12 +22,11 @@ import GHC.Generics
 import Data.Default
 import Data.ByteString hiding (pack, unpack, break, writeFile)
 import Data.ByteString.Lazy (writeFile)
-import Data.String (type IsString, fromString)
+import Data.String (type IsString)
 import Data.Aeson
 import Data.Aeson.Types
 import qualified Data.Aeson.KeyMap as KM
 import Data.Text (type Text, pack, unpack)
-import Data.Text.Encoding (encodeUtf8)
 import Text.InterpolatedString.QM
 import Data.Scientific (toRealFloat)
 import Data.Attoparsec.Text
@@ -55,7 +55,7 @@ showConfigVersionAsNumber ∷ (Monoid α, IsString α) ⇒ ConfigVersion → α
 showConfigVersionAsNumber (ConfigVersion major minor) = [qm| {major}.{minor} |]
 
 instance FromJSON ConfigVersion where
-  parseJSON x@(String str) =
+  parseJSON (String str) =
     case parser `parseOnly` str of
          Right a → pure a
          Left  _ → fail [qms| ConfigVersion supposed to be represented as "N.N" (string)
@@ -79,7 +79,7 @@ instance ToJSON RowKey where
 
 -- In JSON it must be represented as [1..128] while `Pitch` is actually [0..127]
 instance FromJSON Pitch where
-  parseJSON x@(Number (toRealFloat → properFraction → (pred → n, r)))
+  parseJSON x@(Number (toRealFloat @Double → properFraction → (pred → n, r)))
     | r ≠ 0 ∨ n < fromPitch minBound ∨ n > fromPitch maxBound = typeMismatch "Pitch" x
     | otherwise = pure $ toPitch n
 
@@ -91,7 +91,7 @@ instance ToJSON Pitch where
 
 
 instance FromJSON Octave where
-  parseJSON x@(Number (toRealFloat → properFraction → (n, r)))
+  parseJSON x@(Number (toRealFloat @Double → properFraction → (n, r)))
     | r ≠ 0 ∨ n < fromOctave minBound ∨ n > fromOctave maxBound = typeMismatch "Octave" x
     | otherwise = pure $ toOctave n
 
@@ -102,7 +102,7 @@ instance ToJSON Octave where
 
 
 instance FromJSON BaseOctave where
-  parseJSON x@(Number (toRealFloat → properFraction → (n, r)))
+  parseJSON x@(Number (toRealFloat @Double → properFraction → (n, r)))
     | r ≠ 0 ∨ n < fromOctave minBound ∨ n > fromOctave maxBound = typeMismatch "BaseOctave" x
     | otherwise = pure $ toBaseOctave' n
 
@@ -113,7 +113,7 @@ instance ToJSON BaseOctave where
 
 
 instance FromJSON NotesPerOctave where
-  parseJSON x@(Number (toRealFloat → properFraction → (n, r)))
+  parseJSON x@(Number (toRealFloat @Double → properFraction → (n, r)))
     | r ≠ 0 ∨ n < fromNotesPerOctave minBound ∨ n > fromNotesPerOctave maxBound =
         typeMismatch "NotesPerOctave" x
 
@@ -127,7 +127,7 @@ instance ToJSON NotesPerOctave where
 
 -- In JSON it must be represented as [1..16] while `Channel` is actually [0..15]
 instance FromJSON Channel where
-  parseJSON x@(Number (toRealFloat → properFraction → (pred → n, r)))
+  parseJSON x@(Number (toRealFloat @Double → properFraction → (pred → n, r)))
     | r ≠ 0 ∨ n < fromChannel minBound ∨ n > fromChannel maxBound = typeMismatch "Channel" x
     | otherwise = pure $ toChannel n
 
@@ -140,7 +140,7 @@ instance ToJSON Channel where
 
 -- In JSON it must be represented as [1..128] while `Velocity` is actually [0..127]
 instance FromJSON Velocity where
-  parseJSON x@(Number (toRealFloat → properFraction → (pred → n, r)))
+  parseJSON x@(Number (toRealFloat @Double → properFraction → (pred → n, r)))
     | r ≠ 0 ∨ n < fromVelocity minBound ∨ n > fromVelocity maxBound = typeMismatch "Velocity" x
     | otherwise = pure $ toVelocity n
 
@@ -198,7 +198,7 @@ parseConfig src = do
     case jsonConfig of
          (Object (KM.lookup "configVersion" → Just x@(String _))) →
            case fromJSON x of
-                Success x → Right x
+                Success y → Right y
                 Error msg → Left [qms| Parsing config version is failed with message: {msg} |]
          _ → Left "Parsing config version is failed"
 

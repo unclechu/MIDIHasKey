@@ -21,8 +21,6 @@
 
 module Keys.Types where
 
-import Prelude.Unicode
-import GHC.TypeLits
 import GHC.Generics (Generic)
 
 import Data.Singletons.TH

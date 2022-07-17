@@ -4,9 +4,7 @@
 module GUI.Utils where
 
 import Prelude
-import Prelude.Unicode
 
-import System.Glib.UTFString
 import Graphics.UI.Gtk
 import qualified Graphics.UI.Gtk.General.CssProvider as GtkCssProvider (type CssProvider)
 import Graphics.UI.Gtk.General.CssProvider hiding (type CssProvider)

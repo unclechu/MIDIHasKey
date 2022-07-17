@@ -32,7 +32,6 @@ import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, takeMVar)
 
 import Sound.MIDI.Message.Channel
-import Sound.MIDI.Message.Channel.Voice (normalVelocity)
 
 -- local
 import MIDIHasKey.Utils

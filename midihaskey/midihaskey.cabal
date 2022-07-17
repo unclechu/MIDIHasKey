@@ -1,21 +1,22 @@
-cabal-version: 1.12
+cabal-version: 2.4
+name: midihaskey
+version: 0.1.0.0
 
-name:           midihaskey
-version:        0.1.0.0
-synopsis:       Virtual MIDI keyboard for microtonal music
+synopsis: Virtual MIDI keyboard for microtonal music
 
-description:    Virtual MIDI keyboard for microtonal music.
-                TODO add more description info.
+-- description:
+--   Virtual MIDI keyboard for microtonal music.
+--   TODO add more description info.
 
-category:       Audio
-homepage:       https://github.com/unclechu/midihaskey#readme
-bug-reports:    https://github.com/unclechu/midihaskey/issues
-author:         Viacheslav Lotsmanov
-maintainer:     Viacheslav Lotsmanov <lotsmanov89@gmail.com>
-copyright:      Copyright © 2018-2022  Viacheslav Lotsmanov
-license:        GPL-3.0-only
-license-file:   LICENSE
-build-type:     Simple
+category: Audio
+homepage: https://github.com/unclechu/midihaskey#readme
+bug-reports: https://github.com/unclechu/midihaskey/issues
+author: Viacheslav Lotsmanov
+maintainer: lotsmanov89@gmail.com
+copyright: Copyright © 2018-2022  Viacheslav Lotsmanov
+license: GPL-3.0-only
+license-file: LICENSE
+build-type: Simple
 
 extra-source-files:
   -- README.md
@@ -26,25 +27,25 @@ source-repository head
   location: https://github.com/unclechu/midihaskey
 
 library
+  hs-source-dirs:
+    src
   exposed-modules:
-      EventHandler
-      GUI
-      GUI.Alerts
-      GUI.Types
-      GUI.Utils
-      HandleKeyboard
-      Keys.Helpers
-      Keys.Specific.EventHandler
-      Keys.Specific.GUI
-      Keys.Specific.HandleKeyboard
-      Keys.Types
-      MIDIHasKey.Config
-      MIDIPlayer
-      Types
-  hs-source-dirs: src
-  ghc-options: -O2
+    EventHandler
+    GUI
+    GUI.Alerts
+    GUI.Types
+    GUI.Utils
+    HandleKeyboard
+    Keys.Helpers
+    Keys.Specific.EventHandler
+    Keys.Specific.GUI
+    Keys.Specific.HandleKeyboard
+    Keys.Types
+    MIDIHasKey.Config
+    MIDIPlayer
+    Types
   build-depends:
-      aeson
+    , aeson
     , attoparsec
     , base >=4.7 && <5
     , base-unicode-symbols >=0.2.4.2
@@ -66,14 +67,20 @@ library
     , text
     , transformers
     , unordered-containers
-  default-language: Haskell2010
+   -- FIXME: Try to fix Orthanc instances and remove the warning suppress flag
+  ghc-options:
+    -Wall
+    -fno-warn-orphans
+  default-language:
+    Haskell2010
 
 executable midihaskey
-  main-is: Main.hs
-  hs-source-dirs: app
-  ghc-options: -O2 -threaded
+  hs-source-dirs:
+    app
+  main-is:
+    Main.hs
   build-depends:
-      aeson
+    , aeson
     , attoparsec
     , base >=4.7 && <5
     , base-unicode-symbols >=0.2.4.2
@@ -95,4 +102,8 @@ executable midihaskey
     , text
     , transformers
     , unordered-containers
-  default-language: Haskell2010
+  ghc-options:
+    -Wall
+    -threaded
+  default-language:
+    Haskell2010

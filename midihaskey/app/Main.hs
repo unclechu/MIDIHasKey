@@ -10,19 +10,14 @@ module Main (main) where -- "midihaskey" app
 
 import Prelude.Unicode
 
-import Data.Proxy
 import Data.Default (def)
 import Text.InterpolatedString.QM
 
 import Control.Monad
 import Control.Concurrent
-import Control.Concurrent.MVar
 
 import System.Environment (getArgs)
 import System.IO (hPutStrLn, stderr)
-
-import Sound.MIDI.Message.Channel
-import Sound.MIDI.Message.Channel.Voice (normalVelocity)
 
 -- local
 import MIDIHasKey.Utils
