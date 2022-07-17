@@ -14,7 +14,8 @@ in
 , with-midiplayer-jack-hs ? false
 , with-midiplayer-jack-cpp ? false
 , buildTools ? [ "cabal" ] # See “availableBuildTools”
-, withHoogle ? true
+, withHoogle ? true # Generate Hoogle index
+, withHLS ? true # Haskell Language Server (LSP) https://github.com/haskell/haskell-language-server
 }:
 
 assert builtins.all (x: builtins.elem x availableBuildTools) buildTools;
@@ -88,9 +89,10 @@ let
     buildInputs =
       lib.optional (builtins.elem "cabal" buildTools) hsPkgs.cabal-install
       ++ lib.optional (builtins.elem "stack" buildTools) hsPkgs.stack
-      ++ lib.optional with-midiplayer-jack-cpp midiplayer-jack-cpp
+      ++ lib.optional withHLS hsPkgs.haskell-language-server
       ++ lib.optional with-midihaskey hsPkgs.midihaskey.exe
-      ++ lib.optional with-midiplayer-jack-hs hsPkgs.midiplayer-jack-hs.exe;
+      ++ lib.optional with-midiplayer-jack-hs hsPkgs.midiplayer-jack-hs.exe
+      ++ lib.optional with-midiplayer-jack-cpp midiplayer-jack-cpp;
   };
 in
 

@@ -80,6 +80,23 @@ nix-build -A midiplayer-jack-cpp -o result-midiplayer-jack-cpp
 result-midihaskey/bin/midihaskey /dev/input/by-id/usb-xxxx_yyyy-event-kbd | result-midiplayer-jack-cpp/bin/midiplayer-jack-cpp
 ```
 
+#### Dev tools for Haskell apps
+
+Nix setup for nix-shell includes [HLS] turned on by default.
+If you use Vim here is how you can configure [vim-lsp] plugin to use it:
+
+``` viml
+if executable('haskell-language-server-wrapper')
+  aug HaskellLsp
+  au! User lsp_setup cal lsp#register_server({
+    \ 'name': 'hls',
+    \ 'cmd': {server_info->['haskell-language-server-wrapper', '--lsp']},
+    \ 'allowlist': ['haskell'],
+    \ })
+  aug END
+en
+```
+
 ### Using [Stack](https://haskellstack.org)
 
 ``` sh
@@ -95,3 +112,6 @@ Viacheslav Lotsmanov
 # License
 
 [GNU/GPLv3](LICENSE)
+
+[HLS]: https://github.com/haskell/haskell-language-server
+[vim-lsp]: https://github.com/prabirshrestha/vim-lsp
