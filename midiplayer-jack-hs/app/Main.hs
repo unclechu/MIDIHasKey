@@ -6,15 +6,12 @@
 
 module Main (main) where -- "midiplayer-jack-hs" app
 
-import           Prelude.Unicode
 import qualified Foreign.C.Error as Foreign
 
 import           Data.Proxy
-import           Data.IORef
 import           Data.Maybe
-import           Data.Primitive.Ptr (Ptr, nullPtr)
+import           Data.Primitive.Ptr (nullPtr)
 
-import           Control.Monad
 import           Control.Monad.Exception.Synchronous ( Exceptional (Success, Exception)
                                                      , runExceptionalT
                                                      )
