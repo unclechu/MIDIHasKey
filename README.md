@@ -97,6 +97,11 @@ if executable('haskell-language-server-wrapper')
 en
 ```
 
+##### direnv
+
+See [.envrc example file](.envrc.example).
+See [direnv.net](https://direnv.net) if you are not familiar with direnv.
+
 ### Using [Stack](https://haskellstack.org)
 
 ``` sh

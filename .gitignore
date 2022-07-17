@@ -12,3 +12,6 @@ midiplayer-jack-cpp/build
 
 # Nix build artifacts
 result*
+
+# direnv configuration
+.envrc

@@ -1,0 +1,5 @@
+# Example for direnv configuration
+watch_file midihaskey/midihaskey.cabal
+watch_file midihaskey-utils/midihaskey-utils.cabal
+watch_file midiplayer-jack-hs/midiplayer-jack-hs.cabal
+use nix
