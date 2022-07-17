@@ -1,6 +1,17 @@
+# Stack build artifacts
 .stack-work/
+
+# Cabal build artifacts
 dist-newstyle/
+
+# Vim swap files
 *~
-.lvimrc
+
+# C++ MIDI player build artifacts
 midiplayer-jack-cpp/build
+
+# Test builds
 test/midihaskey
+
+# Nix build artifacts
+result*

@@ -51,40 +51,34 @@ For now you can:
 
 ### Using [Nix](https://nixos.org/nix/)
 
-This is the recommended way to run it. It’s also the most simple one.
+Nix is the recommended way to run it.
+
+You can run it just from a nix-shell:
 
 ``` sh
-nix-shell --pure --arg with-midiplayer-jack-cpp true --run 'midihaskey /dev/input/by-id/usb-xxxx_yyyy-event-kbd | midiplayer-jack-cpp'
+nix-shell --arg with-midihaskey true --arg with-midiplayer-jack-cpp true --run 'midihaskey /dev/input/by-id/usb-xxxx_yyyy-event-kbd | midiplayer-jack-cpp'
 ```
 
 Where `/dev/input/by-id/usb-xxxx_yyyy-event-kbd` is your keyboard device path
 (you must have access to read from that file for your current user).
 
-*N.B. `--pure` is optional. It just proves that MIDIHasKey has everything it needs provided by Nix.*
-
 #### Tuning `nix-shell`
 
-Just look at [default.nix](default.nix)’s arguments to see available options, it’s pretty flexible.
-
-#### Development mode
-
-You can enter `nix-shell` in development mode to have `ghci` repl with all the dependencies inside
-as well as some other development-related stuff:
-
-``` sh
-nix-shell --arg run false --arg dev true
-```
-
-*N.B. `--arg run false` is optional, it just prevents final executables from building and populating
-your `PATH`. If you’re developing you may not need them.*
+Look at [default.nix](default.nix)’s arguments to see available options.
 
 ##### Development mode for C++ JACK MIDI Player
 
 ``` sh
-nix-shell --arg dev true --arg with-midiplayer-jack-cpp true
+nix-shell -A midiplayer-jack-cpp
 ```
 
-*N.B. There is no `--arg run false` here because you might want to test it with `midihaskey`.*
+#### Build and run
+
+``` sh
+nix-build -A midihaskey.exe -o result-midihaskey
+nix-build -A midiplayer-jack-cpp -o result-midiplayer-jack-cpp
+result-midihaskey/bin/midihaskey /dev/input/by-id/usb-xxxx_yyyy-event-kbd | result-midiplayer-jack-cpp/bin/midiplayer-jack-cpp
+```
 
 ### Using [Stack](https://haskellstack.org)
 

@@ -1,84 +1,99 @@
 let sources = import nix/sources.nix; in
 { pkgs ? import sources.nixpkgs {}
-, run  ? true
-, dev  ? false
 
-, with-midihaskey          ? true
-, with-midiplayer-jack-hs  ? true
+# When this file is called by nix-shell it’s set to `true` automatically.
+, inNixShell ? false
+
+# These flags are only for nix-shell (when `inNixShell` is `true`).
+# `with-APPNAME` means APPNAME executable will be built and added to the shell.
+, with-midihaskey ? false
+, with-midiplayer-jack-hs ? false
 , with-midiplayer-jack-cpp ? false
+, with-cabal ? true
+, with-stack ? false
+, withHoogle ? true
 }:
+
 let
-  haskellPackagesWithUtils =
-    pkgs.haskellPackages.extend (self: super: packageSingleton midihaskey-utils);
+  inherit (pkgs) lib;
+  inherit (pkgs.haskell.lib) justStaticExecutables;
 
-  package = haskellPackages: dir: rec {
-    name = baseNameOf (toString dir);
-    pkg  = haskellPackages.callCabal2nix name (pkgs.lib.cleanSource dir) {};
-  };
-
-  packageSingleton = { name, pkg }: { "${name}" = pkg; };
-
-  midihaskey-utils   = package pkgs.haskellPackages     ./midihaskey-utils;
-  midihaskey         = package haskellPackagesWithUtils ./midihaskey;
-  midiplayer-jack-hs = package haskellPackagesWithUtils ./midiplayer-jack-hs;
-
-  haskellPacakgesWithAll = haskellPackagesWithUtils.extend (self: super:
-    (if with-midihaskey         then packageSingleton midihaskey         else {}) //
-    (if with-midiplayer-jack-hs then packageSingleton midiplayer-jack-hs else {})
+  hsPkgs = pkgs.haskellPackages.extend (self: super:
+    (
+      let
+        dir = ./midihaskey-utils;
+        name = baseNameOf (toString dir);
+        pkg = self.callCabal2nix name (lib.cleanSource dir) {};
+      in
+        { ${name} = pkg; }
+    ) // (
+      let
+        dir = ./midihaskey;
+        name = baseNameOf (toString dir);
+        pkg = self.callCabal2nix name (lib.cleanSource dir) {};
+      in
+        { ${name} = pkg // { exe = justStaticExecutables pkg; }; }
+    ) // (
+      let
+        dir = ./midiplayer-jack-hs;
+        name = baseNameOf (toString dir);
+        pkg = self.callCabal2nix name (lib.cleanSource dir) {};
+      in
+        { ${name} = pkg // { exe = justStaticExecutables pkg; }; }
+    )
   );
-
-  onlyExecutables =
-    if dev then (x: x) else pkgs.haskell.lib.justStaticExecutables;
 
   midiplayer-jack-cpp = pkgs.stdenv.mkDerivation {
     name = "MIDIHaskKey-midiplayer-jack-cpp";
     src = ./midiplayer-jack-cpp;
-    buildInputs = [ pkgs.jack2 pkgs.gnumake pkgs.pkg-config ];
+    nativeBuildInputs = [ pkgs.gnumake pkgs.pkg-config ];
+    buildInputs = [ pkgs.jack2 ];
 
     buildPhase = ''
-      set -eu
       make
     '';
 
-    installPhase = ''
-      set -eu
+    installPhase = ''(
+      set -o nounset
       mkdir -p -- "$out"/bin
       cp -- build/midiplayer-jack-cpp "$out"/bin
-    '';
+    )'';
 
-    meta.license = pkgs.lib.licenses.gpl3;
-    meta.platforms = pkgs.lib.platforms.linux;
+    meta = with lib; {
+      homepage = "https://github.com/metachronica/audio-midihaskey";
+      description = "MIDIHasKey JACK MIDI player written in C++";
+      maintainers = with maintainers; [ unclechu ];
+      license = licenses.gpl3;
+      platforms = platforms.linux;
+    };
   };
 
-  runDependencies =
-    (if with-midihaskey          then [(onlyExecutables midihaskey.pkg)]         else []) ++
-    (if with-midiplayer-jack-hs  then [(onlyExecutables midiplayer-jack-hs.pkg)] else []) ++
-    (if with-midiplayer-jack-cpp then [midiplayer-jack-cpp]                      else []);
+  shell = hsPkgs.shellFor {
+    name = "MIDIHasKey-shell";
 
-  devDependencies =
-    (if with-midihaskey || with-midiplayer-jack-hs then [
-      (haskellPacakgesWithAll.ghcWithPackages (p:
-        [ p.midihaskey-utils ] ++
-        (if with-midihaskey         then [ p.midihaskey ]                else []) ++
-        (if with-midiplayer-jack-hs then [ p.midiplayer-jack-hs p.jack ] else [])
-      ))
+    packages = p: [
+      p.midihaskey-utils
+      p.midiplayer-jack-hs
+      p.midihaskey
+    ];
 
-      pkgs.cabal-install
-    ] else []) ++
+    inherit withHoogle;
 
-    (if with-midiplayer-jack-cpp then [
-      pkgs.gnumake
-      pkgs.pkg-config
-      pkgs.jack2
-    ] else []);
+    buildInputs =
+      lib.optional with-cabal hsPkgs.cabal-install
+      ++ lib.optional with-stack hsPkgs.stack
+      ++ lib.optional with-midiplayer-jack-cpp midiplayer-jack-cpp
+      ++ lib.optional with-midihaskey hsPkgs.midihaskey.exe
+      ++ lib.optional with-midiplayer-jack-hs hsPkgs.midiplayer-jack-hs.exe;
+  };
 in
-pkgs.stdenv.mkDerivation {
-  name = "MIDIHasKey";
 
-  buildInputs =
-    (if run then runDependencies else []) ++
-    (if dev then devDependencies else []);
+(if inNixShell then shell else {}) // {
+  inherit shell midiplayer-jack-cpp;
 
-  meta.license = pkgs.lib.licenses.gpl3;
-  meta.platforms = pkgs.lib.platforms.linux;
+  inherit (hsPkgs)
+    midihaskey-utils
+    midihaskey
+    midiplayer-jack-hs
+    ;
 }
