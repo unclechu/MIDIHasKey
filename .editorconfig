@@ -1,6 +1,6 @@
 root = true
 
-[*.{hs,cabal,yaml,md,sh,c++,h++,css,nix}]
+[*.{hs,cabal,yaml,md,sh,c++,h++,css,nix,project}]
 indent_style = space
 indent_size = 2
 end_of_line = lf

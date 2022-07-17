@@ -1,0 +1,4 @@
+packages:
+  midihaskey
+  midihaskey-utils
+  midiplayer-jack-hs
