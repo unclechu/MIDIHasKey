@@ -22,27 +22,28 @@ assert builtins.all (x: builtins.elem x availableBuildTools) buildTools;
 let
   inherit (pkgs) lib;
   inherit (pkgs.haskell.lib) justStaticExecutables;
+  cleanSource = pkgs.callPackage nix/clean-source.nix {};
 
   hsPkgs = pkgs.haskellPackages.extend (self: super:
     (
       let
         dir = ./midihaskey-utils;
         name = baseNameOf (toString dir);
-        pkg = self.callCabal2nix name (lib.cleanSource dir) {};
+        pkg = self.callCabal2nix name (cleanSource dir) {};
       in
         { ${name} = pkg; }
     ) // (
       let
         dir = ./midihaskey;
         name = baseNameOf (toString dir);
-        pkg = self.callCabal2nix name (lib.cleanSource dir) {};
+        pkg = self.callCabal2nix name (cleanSource dir) {};
       in
         { ${name} = pkg // { exe = justStaticExecutables pkg; }; }
     ) // (
       let
         dir = ./midiplayer-jack-hs;
         name = baseNameOf (toString dir);
-        pkg = self.callCabal2nix name (lib.cleanSource dir) {};
+        pkg = self.callCabal2nix name (cleanSource dir) {};
       in
         { ${name} = pkg // { exe = justStaticExecutables pkg; }; }
     )
@@ -50,7 +51,7 @@ let
 
   midiplayer-jack-cpp = pkgs.stdenv.mkDerivation {
     name = "MIDIHaskKey-midiplayer-jack-cpp";
-    src = ./midiplayer-jack-cpp;
+    src = cleanSource ./midiplayer-jack-cpp;
     nativeBuildInputs = [ pkgs.gnumake pkgs.pkg-config ];
     buildInputs = [ pkgs.jack2 ];
 

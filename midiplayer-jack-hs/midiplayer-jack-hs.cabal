@@ -10,8 +10,13 @@ bug-reports:    https://github.com/unclechu/midihaskey/issues
 author:         Viacheslav Lotsmanov
 maintainer:     Viacheslav Lotsmanov <lotsmanov89@gmail.com>
 copyright:      Copyright © 2018-2022  Viacheslav Lotsmanov
-license:        GPL-3
+license:        GPL-3.0-only
+license-file:   LICENSE
 build-type:     Simple
+
+extra-source-files:
+  -- README.md
+  -- CHANGELOG.md
 
 source-repository head
   type: git
