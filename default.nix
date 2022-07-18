@@ -5,6 +5,15 @@ in
 
 { pkgs ? import sources.nixpkgs {}
 
+, ghcVersion ? null # e.g. “--argstr ghcVersion ghc923”
+
+, haskellPackages ?
+    if isNull ghcVersion
+    then pkgs.haskellPackages # The default one from the nixpkgs pin
+    else
+      assert builtins.isString ghcVersion;
+      pkgs.haskell.packages.${ghcVersion}
+
 # When this file is called by nix-shell it’s set to `true` automatically.
 , inNixShell ? false
 
@@ -22,10 +31,44 @@ assert builtins.all (x: builtins.elem x availableBuildTools) buildTools;
 
 let
   inherit (pkgs) lib;
-  inherit (pkgs.haskell.lib) justStaticExecutables;
+  inherit (pkgs.haskell.lib) justStaticExecutables doJailbreak overrideCabal overrideSrc;
   cleanSource = pkgs.callPackage nix/clean-source.nix {};
 
-  hsPkgs = pkgs.haskellPackages.extend (self: super:
+  # Some fixes to make it build successfully with GHC 9.2.3
+  overridesForGHC923 = self: super: {
+    linux-evdev = overrideCabal (overrideSrc super.linux-evdev {
+      src = fetchTarball {
+        url = "https://github.com/bgamari/linux-evdev/archive/89869658c421b70e29fadd3e99ed75139048aced.tar.gz";
+        sha256 = "1i37fibalrqw86kkp02nzgahdv4ja6ckh6yfrb3165hi8jkq8r58";
+      };
+    }) {
+      patches = [ nix/linux-evdev-cabal-fix.patch ];
+    };
+
+    qm-interpolated-string = overrideCabal super.qm-interpolated-string {
+      version = "0.3.1.0";
+      sha256 = "sha256-U1x8iSZvuaT7G7RotNKR/C24CTVfECFnlrnNetecXYo=";
+    };
+
+    midi = overrideCabal super.midi {
+      version = "0.2.2.3";
+      sha256 = "sha256-dRLrW0JbJtSWhb269BpTLSe9AtfyevpasZ/Otg9Mcos=";
+    };
+
+    jack = doJailbreak super.jack;
+
+    singletons-th = overrideCabal super.singletons-th {
+      version = "3.1";
+      sha256 = "sha256-6tRWxCHrKOV1gJNexeTYyfnoSITZZ4iPU/0f3pQ+HdY=";
+    };
+  };
+
+  hsPkgs = (haskellPackages.override {
+    overrides =
+      if builtins.elem ghcVersion ["ghc923"]
+      then overridesForGHC923
+      else _: _: {};
+  }).extend (self: super:
     (
       let
         dir = ./midihaskey-utils;

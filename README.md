@@ -80,6 +80,15 @@ nix-build -A midiplayer-jack-cpp -o result-midiplayer-jack-cpp
 result-midihaskey/bin/midihaskey /dev/input/by-id/usb-xxxx_yyyy-event-kbd | result-midiplayer-jack-cpp/bin/midiplayer-jack-cpp
 ```
 
+##### Test against newer GHC
+
+Here is an example how to build using GHC 9.2.3
+(HLS is failing to build at the moment):
+
+``` sh
+nix-build --argstr ghcVersion ghc923 --arg withHLS false -o result-test-ghc923
+```
+
 #### Dev tools for Haskell apps
 
 Nix setup for nix-shell includes [HLS] turned on by default.
